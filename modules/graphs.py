@@ -1,8 +1,9 @@
 import numpy as np
 import networkx as nx
+import itertools
 from scipy.sparse.csgraph import shortest_path
 from numpy.linalg import eigvalsh
-from modules.control import finite_time_gramian
+from modules.control import finite_time_gramian, compute_controllability_rank
 from tqdm import trange, tqdm
 import matplotlib.pyplot as plt
 
@@ -53,15 +54,22 @@ def get_system_matrix_from_graph(G, matrix_choice="adjacency"):
     return S
 
 
-def get_input(G, options, modified_matrix=False):
+def get_input(G, options, B_old=None, modified_matrix=False):
     n = len(G)
     match options['input']:
         case 'all_ones':
             B = np.ones((n, 1))
         case 'identity':
             B = np.eye(n)
+        case 'zfs':
+            if modified_matrix and (B_old is not None):
+                B = B_old
+            else:
+                B = zero_forcing_set_greedy(G)
+        case 'zfs_new':
+            B = zero_forcing_set_greedy(G)
         case _:
-            raise ValueError(f'Unsupported input {options['inupt']}.')
+            raise ValueError(f'Unsupported input {options['input']}.')
     
     return B
 
@@ -73,6 +81,12 @@ def rank_edges_based_on_toggling_single_edge(options, rng):
     A = get_system_matrix_from_graph(G, options['graph_matrix_choice'])
     B = get_input(G, options)
     W = finite_time_gramian(A, B, t=t)
+
+    if options['input'] == 'zfs':
+        laplacian = get_system_matrix_from_graph(G, matrix_choice="laplacian")
+        W_test = finite_time_gramian(laplacian, B, t=t)
+        if np.linalg.matrix_rank(W_test) < A.shape[0]:
+            raise RuntimeError("System is not controllable with zero forcing set as input.")
 
     A_eigvals = eigvalsh(A)
     W_eigvals = eigvalsh(W)
@@ -115,7 +129,7 @@ def rank_edges_based_on_toggling_single_edge(options, rng):
             
             results_per_edge[(u, v)][edge_score_choice] = score
 
-            B_mod = get_input(G, options, modified_matrix=True)
+            B_mod = get_input(G, options, B_old=B, modified_matrix=True)
             W_mod = finite_time_gramian(A_mod, B_mod, t=t)
             results_per_edge[(u, v)]['Wc_spec_dist'] = spectral_distance(W, W_mod, M1_eigvals=W_eigvals)
 
@@ -156,3 +170,69 @@ def plot_scatter(x, y, *, title=None, xlabel=None, ylabel=None):
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()
+
+
+def zero_forcing_set_greedy(G):
+    """
+    Given an adjacency matrix (NumPy 2D array), constructs a NetworkX graph,
+    computes a zero forcing set, and returns a binary vector B.
+    """
+    n = len(G)
+
+    # Define zero forcing process
+    def apply_zero_forcing(initial_set):
+        """Apply zero forcing rule until no more vertices can be forced."""
+        blue = set(initial_set)
+        changed = True
+        while changed:
+            changed = False
+            for u in list(blue):
+                # find white neighbors
+                white_neighbors = [v for v in G.neighbors(u) if v not in blue]
+                if len(white_neighbors) == 1:
+                    w = white_neighbors[0]
+                    if w not in blue:
+                        blue.add(w)
+                        changed = True
+        return blue
+
+    # Fallback: greedy approach if brute force fails
+    # (not guaranteed minimal, but gives a valid ZFS)
+    S = set()
+    blue = set()
+    while len(blue) < n:
+        best_node, best_gain = None, -1
+        for v in range(n):
+            if v in S: continue
+            cand = S | {v}
+            final = apply_zero_forcing(cand)
+            gain = len(final - blue)
+            if gain > best_gain:
+                best_gain, best_node = gain, v
+        S.add(best_node)
+        blue = apply_zero_forcing(S)
+
+    B_vec = np.zeros((n, 1), dtype=int)
+    for idx in S:
+        B_vec[idx] = 1
+    
+    # Build B as a matrix with one column per selected ZFS node
+    k = len(S)
+    B = np.zeros((n, k), dtype=int)
+    for col_idx, node in enumerate(sorted(S)):
+        B[node, col_idx] = 1
+
+    # final_blue = apply_zero_forcing(S)
+    # if len(final_blue) != n:
+    #     raise RuntimeError("Greedy zero forcing set construction failed to color all nodes.")
+    # else:
+    #     L = get_system_matrix_from_graph(G, matrix_choice="laplacian")
+    #     rank, n, is_controllable = compute_controllability_rank(L, B)
+    #     if not is_controllable:
+    #         raise RuntimeError("Computed zero forcing set does not yield controllable system with laplacian as system matrix.")
+
+    return B
+
+
+
+    

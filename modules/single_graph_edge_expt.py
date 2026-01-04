@@ -3,7 +3,8 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from tqdm import trange, tqdm
 from math import isfinite
-from modules.graphs import rank_edges_based_on_toggling_single_edge, plot_scatter
+from modules.graphs import rank_edges_based_on_toggling_single_edge, results_for_cumulative_edge_toggles
+from copy import deepcopy
 
 # Default plotting style (optional)
 plt.rcParams.update({
@@ -17,7 +18,7 @@ GLOBAL_SEED = 7
 rng = np.random.default_rng(GLOBAL_SEED)
 
 
-def plot_results(results_per_edge, other_results, options):
+def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None):
     sorted_data_asc = sorted(results_per_edge.items(), key=lambda item: item[1][options['edge_score_choice']])
     n = len(sorted_data_asc)
     for plot in options['plots']:
@@ -28,11 +29,16 @@ def plot_results(results_per_edge, other_results, options):
         # plt.figure(figsize=(7.2, 4.6))
         # plot_scatter(x, y2)
 
-        fig, ax1 = plt.subplots(figsize=(7.5, 4.8))
+        if ax1 is None:
+            created_figure = True
+            fig, ax1 = plt.subplots(figsize=(7.5, 4.8))
+        else:
+            created_figure = False
 
         y1_label = plot['y1']
         ax1.plot(x, y1, marker="o", label=y1_label)
-        ax1.set_xlabel(f"Edge flips (one at a time) sorted by change in {options['edge_score_choice']}")
+        if xlabel is not None:
+            ax1.set_xlabel(xlabel)
         ax1.set_ylabel(y1_label, color="C0")
         ax1.tick_params(axis="y", labelcolor="C0")
         ax1.grid(alpha=0.3)
@@ -49,7 +55,9 @@ def plot_results(results_per_edge, other_results, options):
                     # f', $\\lambda_n$ = {other_results['A_lambda_max']:.2g})\n' + 
                   f'Input: {options['input']}')
 
-        plt.show()
+        if created_figure:
+            plt.tight_layout()
+            plt.show()
     return
 
 
@@ -61,7 +69,35 @@ def plot_results(results_per_edge, other_results, options):
 # plot given variables (include options for various variables to plot)
 
 def single_graph_edge_expt(options):
-    results_per_edge, other_results = rank_edges_based_on_toggling_single_edge(options, rng)
-    plot_results(results_per_edge, other_results, options)
-    return 0
+    graph_choices = options['graph_choice']
+    n_plots = len(graph_choices)
+    fig, axes = plt.subplots(nrows=1, ncols=n_plots, figsize=(5 * n_plots, 4), squeeze=False)
+    for idx, graph_choice in enumerate(graph_choices):
+        ax1 = axes[0, idx]
+        temp_options = deepcopy(options)
+        temp_options['graph_choice'] = graph_choice
+        results_per_edge, other_results = rank_edges_based_on_toggling_single_edge(temp_options, rng)
+        plot_results(results_per_edge, other_results, temp_options, ax1=ax1)
+    fig.supxlabel(f"Edge flips (one at a time) sorted by change in {options['edge_score_choice']}")
+    plt.tight_layout()
+    plt.show()
+    return
+
+
+def cumulative_graph_edges_expt(options, debug_dont_plot=False):
+    graph_choices = options['graph_choice']
+    n_plots = len(graph_choices)
+    fig, axes = plt.subplots(nrows=1, ncols=n_plots, figsize=(5 * n_plots, 4), squeeze=False)
+    for idx, graph_choice in enumerate(graph_choices):
+        ax1 = axes[0, idx]
+        temp_options = deepcopy(options)
+        temp_options['graph_choice'] = graph_choice
+        results_per_edge, other_results = results_for_cumulative_edge_toggles(temp_options, rng)
+        plot_results(results_per_edge, other_results, temp_options, ax1=ax1)
+    fig.supxlabel(f"Edge flips, cumulative, in the order sorted by change in {temp_options['edge_score_choice']}")
+    plt.tight_layout()
+    if not debug_dont_plot:
+        plt.show()
+    return
+
 

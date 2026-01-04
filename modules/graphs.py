@@ -2,11 +2,11 @@ import numpy as np
 import networkx as nx
 import itertools
 from scipy.sparse.csgraph import shortest_path
-from numpy.linalg import eigvalsh
+from numpy.linalg import eigvals
 from modules.control import finite_time_gramian, compute_controllability_rank
 from tqdm import trange, tqdm
 import matplotlib.pyplot as plt
-
+from copy import deepcopy
 
 
 # ---------- ER: connected sampler ----------
@@ -19,10 +19,21 @@ def connected_erdos_renyi(n, p, rng, max_attempts=200):
     raise RuntimeError(f"Could not sample a connected G(n,{p:.3f}) after {max_attempts} tries.")
 
 
+def connected_random_geometric(n, r, rng, max_attempts=200):
+    """Sample a connected random geometric graph."""
+    for _ in range(max_attempts):
+        G = nx.random_geometric_graph(n, r, seed=int(rng.integers(0, 2**32 - 1)))
+        if nx.is_connected(G):
+            return G
+    raise RuntimeError(f"Could not sample a connected RG(n,{r:.3f}) after {max_attempts} tries.")
+
+
 def get_graph(graph_choice, rng=np.nan):
     match graph_choice['type']:
         case 'connected_ER':
             G = connected_erdos_renyi(n=graph_choice['n'], p=graph_choice['p'], rng=rng)
+        case 'connected_RG':
+            G = connected_random_geometric(n=graph_choice['n'], r=graph_choice['r'], rng=rng)
         case _:
             raise ValueError(f"Graph choice {graph_choice} unsupported.")
     return G
@@ -74,13 +85,24 @@ def get_input(G, options, B_old=None, modified_matrix=False):
     return B
 
 
-def rank_edges_based_on_toggling_single_edge(options, rng):
+def results_for_cumulative_edge_toggles(options, rng):
+    ranking_of_edges, other_results = rank_edges_based_on_toggling_single_edge(options, rng)
+    results_per_edge, other_results = rank_edges_based_on_toggling_single_edge(options, rng, ranking_of_edges=ranking_of_edges)
+    return results_per_edge, other_results
+
+
+def rank_edges_based_on_toggling_single_edge(options, rng, ranking_of_edges=None):
     t = options['t_horizon']
     edge_score_choice = options['edge_score_choice']
     G = get_graph(graph_choice=options['graph_choice'], rng=rng)
     A = get_system_matrix_from_graph(G, options['graph_matrix_choice'])
     B = get_input(G, options)
     W = finite_time_gramian(A, B, t=t)
+    W_trace = float(np.trace(W))
+    W_pinv = np.linalg.pinv(W)
+    W_pinv_trace = float(np.trace(W_pinv))
+    W_logdet = logdet_psd(W)[0]
+    W_rank = np.linalg.matrix_rank(W)
 
     if options['input'] == 'zfs':
         laplacian = get_system_matrix_from_graph(G, matrix_choice="laplacian")
@@ -88,50 +110,96 @@ def rank_edges_based_on_toggling_single_edge(options, rng):
         if np.linalg.matrix_rank(W_test) < A.shape[0]:
             raise RuntimeError("System is not controllable with zero forcing set as input.")
 
-    A_eigvals = eigvalsh(A)
-    W_eigvals = eigvalsh(W)
+    A_eigvals = eigvals(A)
+    W_eigvals = eigvals(W)
     other_results = {}
     other_results['A_lambda_min'] = float(np.min(A_eigvals))
     other_results['A_lambda_max'] = float(np.max(A_eigvals))
+    W_lambda_min = float(np.min(W_eigvals))
 
     nodes = list(G.nodes())
     n = len(nodes)
     results_per_edge = {}
 
-    for i in tqdm(range(n)):
-        for j in range(n):
-            u, v = nodes[i], nodes[j]
-            if i == j:
-                if G.has_edge(u, v):
-                    raise ValueError(f"Non-simple graphs not supported.")
-                else:
-                    continue
-            
-            results_per_edge[(u,v)] = {}
+    G_mod = deepcopy(G)
 
-            # Modify the graph: toggle edge presence
-            G_mod = G.copy()
-            if G_mod.has_edge(u, v):
-                G_mod.remove_edge(u, v)
+    for i in range(n):
+        u = nodes[i]
+        if G.has_edge(u, u):
+            raise ValueError(f"Non-simple graphs not supported.")
+
+    if ranking_of_edges is None:
+        if nx.is_directed(G):
+            edge_iter = [(i, j) for i in range(n) for j in range(n) if i != j]
+        else:
+            edge_iter = [(i, j) for i in range(n) for j in range(n) if j > i + 1]
+    else:
+        sorted_data_asc = sorted(ranking_of_edges.items(), key=lambda item: item[1][options['edge_score_choice']])
+        edge_iter = [item[0] for item in sorted_data_asc]
+
+    for i, j in tqdm(edge_iter):
+        u, v = nodes[i], nodes[j]
+
+        # Modify the graph: toggle edge presence
+        if ranking_of_edges is None:
+            G_mod = deepcopy(G)
+        if G_mod.has_edge(u, v):
+            G_mod.remove_edge(u, v)
+        else:
+            G_mod.add_edge(u, v)
+
+        A_mod = get_system_matrix_from_graph(G_mod, options['graph_matrix_choice'])
+        if np.isnan(A_mod).any():
+            if not nx.is_connected(G_mod):
+                print(f"Skipping disconnected graph obtained by removing edge ({u}, {v}).")
+                continue
             else:
-                G_mod.add_edge(u, v)
+                raise RuntimeError("NaN encountered in modified system matrix.")
+        A_spec_dist = spectral_distance(A, A_mod, M1_eigvals=A_eigvals)
+        B_mod = get_input(G, options, B_old=B, modified_matrix=True)
+        W_mod = finite_time_gramian(A_mod, B_mod, t=t)
 
-            A_mod = get_system_matrix_from_graph(G_mod, options['graph_matrix_choice'])
+        Wc_spec_dist = spectral_distance(W, W_mod, M1_eigvals=W_eigvals)
+        W_mod_eigvals = eigvals(W_mod)
+        W_mod_lambda_min = float(np.min(W_mod_eigvals))
+        W_mod_pinv = np.linalg.pinv(W_mod)
+        W_mod_pinv_trace = float(np.trace(W_mod_pinv))
+        W_mod_logdet = logdet_psd(W_mod)[0]
+        W_mod_rank = np.linalg.matrix_rank(W_mod)
 
-            match edge_score_choice:
-                case 'sys_mat_spec_dist':
-                    score = spectral_distance(A, A_mod, M1_eigvals=A_eigvals)
-                # case 'trace_W':
-                #     tr_mod = float(np.trace(W_mod))
-                #     scores[(u, v)] = tr_full - tr_mod
-                case _:
-                    raise ValueError(f'Edge score choice {edge_score_choice} not supported.')
-            
-            results_per_edge[(u, v)][edge_score_choice] = score
+        W_trace_diff = np.abs(W_trace - float(np.trace(W_mod)))
+        W_lambda_min_diff = np.abs(W_lambda_min - W_mod_lambda_min)
+        W_pinv_trace_diff = np.abs(W_pinv_trace - W_mod_pinv_trace)
+        W_logdet_diff = np.abs(W_logdet - W_mod_logdet)
+        W_rank_diff = np.abs(W_rank - W_mod_rank)
 
-            B_mod = get_input(G, options, B_old=B, modified_matrix=True)
-            W_mod = finite_time_gramian(A_mod, B_mod, t=t)
-            results_per_edge[(u, v)]['Wc_spec_dist'] = spectral_distance(W, W_mod, M1_eigvals=W_eigvals)
+        match edge_score_choice:
+            case 'sys_mat_spec_dist':
+                score = A_spec_dist
+            case 'Wc_spec_dist':
+                score = A_spec_dist
+            case 'Wc_trace_diff':
+                score = W_trace_diff
+            case 'Wc_lambda_min_diff':
+                score = W_lambda_min_diff
+            case 'Wc_pinv_trace_diff':
+                score = W_pinv_trace_diff
+            case 'Wc_logdet_diff':
+                score = W_logdet_diff
+            case 'Wc_rank_diff':
+                score = W_rank_diff
+            case _:
+                raise ValueError(f'Edge score choice {edge_score_choice} not supported.')
+        
+        results_per_edge[(u, v)] = {}
+        results_per_edge[(u, v)][edge_score_choice] = score
+        results_per_edge[(u, v)]['sys_mat_spec_dist'] = A_spec_dist
+        results_per_edge[(u, v)]['Wc_trace_diff'] = W_trace_diff
+        results_per_edge[(u, v)]['Wc_lambda_min_diff'] = W_lambda_min_diff
+        results_per_edge[(u, v)]['Wc_pinv_trace_diff'] = W_pinv_trace_diff
+        results_per_edge[(u, v)]['Wc_logdet_diff'] = W_logdet_diff
+        results_per_edge[(u, v)]['Wc_rank_diff'] = W_rank_diff
+        results_per_edge[(u, v)]['Wc_spec_dist'] = Wc_spec_dist
 
     return results_per_edge, other_results
 
@@ -142,20 +210,23 @@ def spectral_distance(M1, M2, M1_eigvals=None, M2_eigvals=None, ord_norm=1):
     where M1 and M2 are symmetric and eigenvalues are sorted.
     """
     if M1_eigvals is None:
-        M1_eigvals = eigvalsh(M1)
+        M1_eigvals = eigvals(M1)
     if M2_eigvals is None:
-        M2_eigvals = eigvalsh(M2)
+        M2_eigvals = eigvals(M2)
     cs = np.linalg.norm(np.sort(M1_eigvals) - np.sort(M2_eigvals), ord=ord_norm)
     return cs
 
 
 def safe_det_psd(W, tol=1e-12):
-    ev = eigvalsh(W)
+    ev = eigvals(W)
     full = np.min(ev) > tol
     return (float(np.prod(ev)) if full else 0.0), full
 
-def logdet_psd(W, tol=1e-12):
-    ev = eigvalsh(W)
+def logdet_psd(W, W_eigval=None, tol=1e-12):
+    if W_eigval is not None:
+        ev = W_eigval
+    else:
+        ev = eigvals(W)
     kept = ev[ev > tol]
     if kept.size == 0:
         return -np.inf, 0, False

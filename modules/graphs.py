@@ -85,12 +85,6 @@ def get_input(G, options, B_old=None, modified_matrix=False):
     return B
 
 
-def results_for_cumulative_edge_toggles(options, rng):
-    ranking_of_edges, other_results = rank_edges_based_on_toggling_single_edge(options, rng)
-    results_per_edge, other_results = rank_edges_based_on_toggling_single_edge(options, rng, ranking_of_edges=ranking_of_edges)
-    return results_per_edge, other_results
-
-
 def rank_edges_based_on_toggling_single_edge(options, rng, ranking_of_edges=None):
     t = options['t_horizon']
     edge_score_choice = options['edge_score_choice']

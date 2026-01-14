@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import scipy
 from tqdm import trange, tqdm
 from math import isfinite
-from modules.graphs import rank_edges_based_on_toggling_single_edge, results_for_cumulative_edge_toggles
+from modules.graphs import rank_edges_based_on_toggling_single_edge
 from copy import deepcopy
 
 # Default plotting style (optional)
@@ -105,6 +105,8 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, cumulative=False, p
         plt.tight_layout()
         if not debug_dont_plot:
             plt.show()
+        else:
+            plt.close(fig)
     return
 
 

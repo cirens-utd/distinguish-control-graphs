@@ -2,11 +2,12 @@ import numpy as np
 import networkx as nx
 import itertools
 from scipy.sparse.csgraph import shortest_path
-from numpy.linalg import eigvals
-from modules.control import finite_time_gramian, compute_controllability_rank
+from numpy.linalg import eigvals, eigvalsh
+from modules.control import finite_time_gramian, compute_controllability_rank, finite_horizon_gramian_through_integration
 from tqdm import trange, tqdm
 import matplotlib.pyplot as plt
 from copy import deepcopy
+import scipy
 
 
 # ---------- ER: connected sampler ----------
@@ -62,19 +63,33 @@ def get_system_matrix_from_graph(G, matrix_choice="adjacency"):
             S = I - T_inv_sqrt @ dist @ T_inv_sqrt
         case _:
             raise ValueError(f"Matrix choice {matrix_choice} unsupported.")
+    
+    # if np.isnan(S).any():
+    #     raise RuntimeError(f"System matrix has NaN elements for matrix choice {matrix_choice}.")
+    
     return S
 
 
-def get_input(G, options, B_old=None, modified_matrix=False):
+def get_input(G, options, B_old=None, T=None, modified_matrix=False):
     n = len(G)
     match options['input']:
         case 'all_ones':
             B = np.ones((n, 1))
         case 'identity':
             B = np.eye(n)
+        case 'identity_transf':
+            if modified_matrix:
+                B = T.T @ np.eye(n)
+            else:
+                B = np.eye(n)
         case 'zfs':
             if modified_matrix and (B_old is not None):
                 B = B_old
+            else:
+                B = zero_forcing_set_greedy(G)
+        case 'zfs_transf':
+            if modified_matrix and (B_old is not None):
+                B = T.T @ B_old
             else:
                 B = zero_forcing_set_greedy(G)
         case 'zfs_new':
@@ -85,17 +100,42 @@ def get_input(G, options, B_old=None, modified_matrix=False):
     return B
 
 
+def real_eigval_for_potentially_nonsymmetric_matrix(M):
+    if not scipy.linalg.issymmetric(M, atol=1e-10*np.max(np.abs(M))):
+        raise RuntimeError(f"Matrix is not symmetric. Norm of differnce: {np.linalg.norm(M - M.T)}. Max val: {np.max(np.abs(M))}")
+    else:
+        eigvals_M = eigvalsh(M)
+    # eigvals_M = eigvals(M)
+    # if np.max(np.abs(eigvals_M.imag)) > 1e-10*np.max(np.abs(eigvals_M)):
+    #     raise RuntimeError("Matrix has significant imaginary eigenvalues.")
+    # return eigvals_M.real
+    return eigvals_M
+
+
+def real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(M):
+    if not scipy.linalg.issymmetric(M, atol=1e-10*np.max(np.abs(M))):
+        raise RuntimeError(f"Matrix is not symmetric. Norm of differnce: {np.linalg.norm(M - M.T)}. Max val: {np.max(np.abs(M))}")
+    else:
+        eigvals_M, eigvecs_M = np.linalg.eigh(M)
+    return eigvals_M, eigvecs_M
+
+
 def rank_edges_based_on_toggling_single_edge(options, rng, ranking_of_edges=None):
+    # If a ranking of edges is provided, edges are toggled cumulatively instead of one-by-one.
+    # To toggle edges one-by-one, do not provide ranking_of_edges
     t = options['t_horizon']
     edge_score_choice = options['edge_score_choice']
     G = get_graph(graph_choice=options['graph_choice'], rng=rng)
     A = get_system_matrix_from_graph(G, options['graph_matrix_choice'])
     B = get_input(G, options)
     W = finite_time_gramian(A, B, t=t)
+
+    A_eigvals, Q1 = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(A)
+    W_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W)
     W_trace = float(np.trace(W))
     W_pinv = np.linalg.pinv(W)
     W_pinv_trace = float(np.trace(W_pinv))
-    W_logdet = logdet_psd(W)[0]
+    W_logdet = logdet_psd(W, W_eigval=W_eigvals)[0]
     W_rank = np.linalg.matrix_rank(W)
 
     if options['input'] == 'zfs':
@@ -104,8 +144,6 @@ def rank_edges_based_on_toggling_single_edge(options, rng, ranking_of_edges=None
         if np.linalg.matrix_rank(W_test) < A.shape[0]:
             raise RuntimeError("System is not controllable with zero forcing set as input.")
 
-    A_eigvals = eigvals(A)
-    W_eigvals = eigvals(W)
     other_results = {}
     other_results['A_lambda_min'] = float(np.min(A_eigvals))
     other_results['A_lambda_max'] = float(np.max(A_eigvals))
@@ -149,12 +187,15 @@ def rank_edges_based_on_toggling_single_edge(options, rng, ranking_of_edges=None
                 continue
             else:
                 raise RuntimeError("NaN encountered in modified system matrix.")
-        A_spec_dist = spectral_distance(A, A_mod, M1_eigvals=A_eigvals)
-        B_mod = get_input(G, options, B_old=B, modified_matrix=True)
+        
+        A_mod_eigvals, Q2 = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(A_mod)
+        T = Q1 @ Q2.T
+        A_spec_dist = spectral_distance(A, A_mod, M1_eigvals=A_eigvals, M2_eigvals=A_mod_eigvals)
+        B_mod = get_input(G, options, B_old=B, T=T, modified_matrix=True)
         W_mod = finite_time_gramian(A_mod, B_mod, t=t)
 
-        Wc_spec_dist = spectral_distance(W, W_mod, M1_eigvals=W_eigvals)
-        W_mod_eigvals = eigvals(W_mod)
+        W_mod_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W_mod)
+        Wc_spec_dist = spectral_distance(W, W_mod, M1_eigvals=W_eigvals, M2_eigvals=W_mod_eigvals)
         W_mod_lambda_min = float(np.min(W_mod_eigvals))
         W_mod_pinv = np.linalg.pinv(W_mod)
         W_mod_pinv_trace = float(np.trace(W_mod_pinv))
@@ -204,15 +245,18 @@ def spectral_distance(M1, M2, M1_eigvals=None, M2_eigvals=None, ord_norm=1):
     where M1 and M2 are symmetric and eigenvalues are sorted.
     """
     if M1_eigvals is None:
-        M1_eigvals = eigvals(M1)
+        M1_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(M1)
     if M2_eigvals is None:
-        M2_eigvals = eigvals(M2)
+        M2_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(M2)
     cs = np.linalg.norm(np.sort(M1_eigvals) - np.sort(M2_eigvals), ord=ord_norm)
     return cs
 
 
-def safe_det_psd(W, tol=1e-12):
-    ev = eigvals(W)
+def safe_det_psd(W, W_eigval=None, tol=1e-12):
+    if W_eigval is not None:
+        ev = W_eigval
+    else:
+        ev = real_eigval_for_potentially_nonsymmetric_matrix(W)
     full = np.min(ev) > tol
     return (float(np.prod(ev)) if full else 0.0), full
 
@@ -220,7 +264,7 @@ def logdet_psd(W, W_eigval=None, tol=1e-12):
     if W_eigval is not None:
         ev = W_eigval
     else:
-        ev = eigvals(W)
+        ev = real_eigval_for_potentially_nonsymmetric_matrix(W)
     kept = ev[ev > tol]
     if kept.size == 0:
         return -np.inf, 0, False

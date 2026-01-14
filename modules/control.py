@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.linalg import expm
 import control as ct
+from scipy.integrate import solve_ivp
 
 
 
@@ -34,6 +35,43 @@ def finite_time_gramian(A, B, t=1.0):
     F22 = T[n:2*n, n:2*n]
     F12 = T[0:n,   n:2*n]
     return F22.T @ F12  # symmetric PSD
+
+
+def finite_horizon_gramian_through_integration(A, B, t_total=1.0):
+    """
+    Computes the finite horizon controllability Gramian Wc(T) for a system (A, B).
+
+    Args:
+        A (np.ndarray): The system state matrix (n x n).
+        B (np.ndarray): The system input matrix (n x m).
+        T (float): The final time horizon.
+
+    Returns:
+        np.ndarray: The controllability Gramian Wc(T) (n x n).
+    """
+    n = A.shape[0]
+    
+    def gramian_ode(t, W_flat):
+        W = W_flat.reshape((n, n))
+        # The differential equation: dW/dt = A*W + W*A.T + B*B.T
+        dWdt = A @ W + W @ A.T + B @ B.T
+        return dWdt.flatten()
+
+    # Initial condition: Wc(0) = 0
+    W0_flat = np.zeros(n * n)
+    
+    # Time span for integration
+    t_span = [0, t_total]
+    
+    # Solve the ODE
+    solution = solve_ivp(gramian_ode, t_span, W0_flat, dense_output=True)
+    
+    if not solution.success:
+        print(f"Integration failed: {solution.message}")
+    
+    # Extract the Gramian at time T
+    Wc_T = solution.y[:, -1].reshape((n, n))
+    return Wc_T
 
 
 def compute_controllability_rank(A, B):

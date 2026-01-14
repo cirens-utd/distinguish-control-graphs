@@ -14,9 +14,9 @@ plt.rcParams.update({
     "grid.alpha": 0.35,
 })
 
-# Default RNG
-GLOBAL_SEED = 7
-rng = np.random.default_rng(GLOBAL_SEED)
+# # Default RNG
+# GLOBAL_SEED = 7
+# rng = np.random.default_rng(GLOBAL_SEED)
 
 
 def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None):
@@ -78,19 +78,21 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
 # plot given variables (include options for various variables to plot)
 
 def graph_edge_toggling_expt(options, debug_dont_plot=False, cumulative=False, plot_all_ignoring_low_corr=False):
-    graph_choices = options['graph_choice']
-    n_plots = len(graph_choices)
+    graphs = options['graphs']
+    graph_choices = options['graph_choices']
+    n_plots = len(graphs)
     fig, axes = plt.subplots(nrows=1, ncols=n_plots, figsize=(5 * n_plots, 4), squeeze=False)
     low_corr_coef_score = None
-    for idx, graph_choice in enumerate(graph_choices):
+    for idx, graph in enumerate(graphs):
         ax1 = axes[0, idx]
         temp_options = deepcopy(options)
-        temp_options['graph_choice'] = graph_choice
+        temp_options['graph'] = graph
+        temp_options['graph_choice'] = graph_choices[idx]
         if cumulative:
-            ranking_of_edges, other_results = rank_edges_based_on_toggling_single_edge(temp_options, rng)
-            results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(temp_options, rng, ranking_of_edges=ranking_of_edges)
+            ranking_of_edges, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options)
+            results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options, ranking_of_edges=ranking_of_edges)
         else:
-            results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(temp_options, rng)
+            results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options)
         corr_coef_score_this_iter = plot_results(results_per_edge_toggled, other_results, temp_options, ax1=ax1)
         if np.sum(np.array(corr_coef_score_this_iter)) < len(corr_coef_score_this_iter)/2:
             low_corr_coef_score = corr_coef_score_this_iter

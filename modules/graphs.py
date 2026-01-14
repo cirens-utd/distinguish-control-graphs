@@ -10,6 +10,11 @@ from copy import deepcopy
 import scipy
 
 
+# Default RNG
+GLOBAL_SEED = 7
+rng = np.random.default_rng(GLOBAL_SEED)
+
+
 # ---------- ER: connected sampler ----------
 def connected_erdos_renyi(n, p, rng, max_attempts=200):
     """Sample a connected G(n,p)."""
@@ -29,12 +34,18 @@ def connected_random_geometric(n, r, rng, max_attempts=200):
     raise RuntimeError(f"Could not sample a connected RG(n,{r:.3f}) after {max_attempts} tries.")
 
 
-def get_graph(graph_choice, rng=np.nan):
+def get_graph(graph_choice):
     match graph_choice['type']:
         case 'connected_ER':
             G = connected_erdos_renyi(n=graph_choice['n'], p=graph_choice['p'], rng=rng)
         case 'connected_RG':
             G = connected_random_geometric(n=graph_choice['n'], r=graph_choice['r'], rng=rng)
+        case 'BA':
+            initial_graph = get_graph(graph_choice['init']) if 'init' in graph_choice else nx.complete_graph(graph_choice['m'])
+            G = nx.barabasi_albert_graph(n=graph_choice['n'], m=graph_choice['m'], seed=int(rng.integers(0, 2**32 - 1)),
+                                         initial_graph=initial_graph, create_using=nx.Graph)
+        case 'complete':
+            G = nx.complete_graph(n=graph_choice['n'])
         case _:
             raise ValueError(f"Graph choice {graph_choice} unsupported.")
     return G
@@ -120,12 +131,11 @@ def real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(M):
     return eigvals_M, eigvecs_M
 
 
-def rank_edges_based_on_toggling_single_edge(options, rng, ranking_of_edges=None):
+def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
     # If a ranking of edges is provided, edges are toggled cumulatively instead of one-by-one.
     # To toggle edges one-by-one, do not provide ranking_of_edges
     t = options['t_horizon']
     edge_score_choice = options['edge_score_choice']
-    G = get_graph(graph_choice=options['graph_choice'], rng=rng)
     A = get_system_matrix_from_graph(G, options['graph_matrix_choice'])
     B = get_input(G, options)
     W = finite_time_gramian(A, B, t=t)

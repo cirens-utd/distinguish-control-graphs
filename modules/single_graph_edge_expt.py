@@ -26,10 +26,19 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
         x = list(range(1, n + 1))
         y1 = [item[1][plot['y1']] for item in sorted_data_asc]
         y2 = [item[1][plot['y2']] for item in sorted_data_asc]
+        y3 = []
+        corr_y1_with_this = y2
+        if 'plot_these_graph_matrices_spec_dist' in options and len(options['plot_these_graph_matrices_spec_dist']) > 0:
+            for matrix_choice in options['plot_these_graph_matrices_spec_dist']:
+                y3.append([item[1][f'{matrix_choice}_spec_dist'] for item in sorted_data_asc])
+                if 'use_this_sys_matrix_spec_dist_for_corr' in options and len(options['use_this_sys_matrix_spec_dist_for_corr']) > 0:
+                    if matrix_choice == options['use_this_sys_matrix_spec_dist_for_corr'] and matrix_choice != options['graph_matrix_choice']:
+                        # print(f"Using {matrix_choice} for correlation.")
+                        corr_y1_with_this = y3[-1]
 
         # pearson_coef = np.corrcoef(y1, y2)[0, 1]
-        spearman_coef = scipy.stats.spearmanr(y1, y2).statistic
-        kendalltau_coef = scipy.stats.kendalltau(y1, y2).statistic
+        spearman_coef = scipy.stats.spearmanr(y1, corr_y1_with_this).statistic
+        kendalltau_coef = scipy.stats.kendalltau(y1, corr_y1_with_this).statistic
         corr_coef_scores = [spearman_coef, kendalltau_coef]
         
         # plt.figure(figsize=(7.2, 4.6))
@@ -48,6 +57,18 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
         ax1.set_ylabel(y1_label, color="C0")
         ax1.tick_params(axis="y", labelcolor="C0")
         ax1.grid(alpha=0.3)
+        if len(y3) > 0:
+            ymin_ax, ymax_ax = ax1.get_ylim()
+            for i, matrix_choice in enumerate(options['plot_these_graph_matrices_spec_dist']):
+                # get current axis limits and rescale y3[i] to fit
+                # new_data = np.interp(y3[i], (ymin_ax, ymax_ax), (0, 1))
+                # Avoid division by zero
+                if np.max(y3[i]) != np.min(y3[i]):
+                    y_scaled = ymin_ax + (y3[i] - np.min(y3[i])) * (ymax_ax - ymin_ax) / (np.max(y3[i]) - np.min(y3[i]))
+                else:
+                    y_scaled = np.full_like(y3[i], (ymin_ax + ymax_ax) / 2)
+                ax1.plot(x, y_scaled, marker="o", linestyle="--", color=f"C{i+2}", label=f'{matrix_choice}_spec_dist')
+            ax1.legend(loc="upper left")
 
         y2_label = plot['y2']
         ax2 = ax1.twinx()
@@ -110,5 +131,38 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, cumulative=False, p
         else:
             plt.close(fig)
     return
+
+
+def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices, graphs, matrix_choices, input_choices,
+        edge_score_choices, t_horizon=1, plot_all_ignoring_low_corr=False, cumulative=False, debug_dont_plot=False,
+        plot_these_graph_matrices_spec_dist=[], skip_toggling_of_edges_that_disconnect_graph=False,
+        use_this_sys_matrix_spec_dist_for_corr=[], use_pseudo_gramian=False):
+    
+    options = {'graph_choices': graph_choices,
+               'graphs': graphs,
+               't_horizon': t_horizon,
+               'plot_these_graph_matrices_spec_dist': plot_these_graph_matrices_spec_dist,
+               'skip_toggling_of_edges_that_disconnect_graph': skip_toggling_of_edges_that_disconnect_graph,
+               'use_this_sys_matrix_spec_dist_for_corr': use_this_sys_matrix_spec_dist_for_corr,
+               'use_pseudo_gramian': use_pseudo_gramian}
+    
+    if len(use_this_sys_matrix_spec_dist_for_corr) > 0:
+        options['use_this_sys_matrix_spec_dist_for_corr'] = use_this_sys_matrix_spec_dist_for_corr[0]
+
+    for matrix_choice in matrix_choices:
+        for input_choice in input_choices:
+            for edge_score_choice in edge_score_choices:
+                if (matrix_choice == 'neg_laplacian' or matrix_choice == 'laplacian') and input_choice == 'all_ones':
+                    # neg_laplacian with all-ones input results in a trivial all-ones gramian.
+                    continue
+                if 'use_pseudo_gramian' in options and options['use_pseudo_gramian'] and 'laplacian' not in matrix_choice:
+                    # Pseudo-gramian is only defined for semistable systems
+                    continue
+                options['edge_score_choice'] = edge_score_choice
+                options['plots'] = [{'y1': 'sys_mat_spec_dist', 'y2': edge_score_choice}]
+                options['graph_matrix_choice'] = matrix_choice
+                options['input'] = input_choice
+                graph_edge_toggling_expt(options, plot_all_ignoring_low_corr=plot_all_ignoring_low_corr,
+                                         cumulative=cumulative, debug_dont_plot=debug_dont_plot)
 
 

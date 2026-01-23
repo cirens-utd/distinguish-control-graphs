@@ -39,6 +39,36 @@ def finite_time_gramian(A, B, t=1.0):
     return F22.T @ F12  # symmetric PSD
 
 
+def finite_time_discrete_gramian(A, B, t_as_fraction_of_n=2.0):
+    """
+    Compute the finite-time discrete-time controllability Gramian
+
+        W_t = sum_{k=0}^{t_total-1} A^k B B^T {A^k}^T
+
+    Parameters
+    ----------
+    A : (n, n) ndarray
+        System / graph matrix (e.g., adjacency, Laplacian, etc.).
+    B : (n, m) ndarray
+        Input matrix.
+    t_as_fraction_of_n : float
+        Fraction of n to use as time horizon.
+
+    Returns
+    -------
+    W_t : (n, n) ndarray
+        Finite-time discrete-time controllability Gramian.
+    """
+    n = A.shape[0]
+    Wc_discrete = np.zeros((n, n))
+    t_total = int(round(t_as_fraction_of_n * n))
+    Ak = np.eye(n)
+    for k in range(t_total):
+        Wc_discrete += Ak @ B @ B.T @ Ak.T
+        Ak = Ak @ A
+    return Wc_discrete
+
+
 def finite_horizon_gramian_through_integration(A, B, t_total=1.0):
     """
     Computes the finite horizon controllability Gramian Wc(T) for a system (A, B).
@@ -105,7 +135,7 @@ def compute_controllability_rank(A, B):
     return rank, n, is_controllable
 
 
-def pseudo_gramian_for_semistable_A_inf_horizon(A, B, tol=1e-4, opt_tol=1e-5):
+def pseudo_gramian_for_semistable_A_inf_horizon(A, B, t=np.inf, tol=1e-4, opt_tol=1e-5):
 
     if any(eigvals(A) > tol):
         raise ValueError("A is not semistable (NSD).")

@@ -4,7 +4,7 @@ import itertools
 from numpy.ma.core import true_divide
 from scipy.sparse.csgraph import shortest_path
 from numpy.linalg import eigvalsh
-from modules.control import finite_time_gramian, pseudo_gramian_for_semistable_A_inf_horizon, compute_controllability_rank, finite_horizon_gramian_through_integration
+from modules.control import finite_time_gramian, pseudo_gramian_for_semistable_A_inf_horizon, finite_time_discrete_gramian, compute_controllability_rank, finite_horizon_gramian_through_integration
 from tqdm import trange, tqdm
 import matplotlib.pyplot as plt
 from copy import deepcopy
@@ -170,10 +170,18 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
     
     A = get_system_matrix_from_graph(G, options['graph_matrix_choice'])
     B = get_input(G, options)
-    if use_pseudo_gramian:
-        W = pseudo_gramian_for_semistable_A_inf_horizon(A, B)
-    else:
-        W = finite_time_gramian(A, B, t=t)
+    
+    match options['gramian_choice']:
+        case 'finite_continuous':
+            gramian_func = finite_time_gramian
+        case 'finite_discrete':
+            gramian_func = finite_time_discrete_gramian
+        case 'pseudo_infinite_continuous':
+            gramian_func = pseudo_gramian_for_semistable_A_inf_horizon
+        case _:
+            raise ValueError(f"Gramian choice {options['gramian_choice']} unsupported.")
+    
+    W = gramian_func(A, B, t=t)
 
     A_eigvals, Q1 = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(A)
     W_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W)
@@ -252,7 +260,7 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
         if use_pseudo_gramian:
             W_mod = pseudo_gramian_for_semistable_A_inf_horizon(A_mod, B_mod)
         else:
-            W_mod = finite_time_gramian(A_mod, B_mod, t=t)
+            W_mod = gramian_func(A_mod, B_mod, t=t)
 
         W_mod_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W_mod)
         Wc_spec_dist = spectral_distance(W, W_mod, M1_eigvals=W_eigvals, M2_eigvals=W_mod_eigvals)

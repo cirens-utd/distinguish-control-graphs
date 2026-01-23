@@ -134,9 +134,10 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, cumulative=False, p
 
 
 def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices, graphs, matrix_choices, input_choices,
-        edge_score_choices, t_horizon=1, plot_all_ignoring_low_corr=False, cumulative=False, debug_dont_plot=False,
+        edge_score_choices, gramian_choices=['finite_continuous'],
+        t_horizon=1, plot_all_ignoring_low_corr=False, cumulative=False, debug_dont_plot=False,
         plot_these_graph_matrices_spec_dist=[], skip_toggling_of_edges_that_disconnect_graph=False,
-        use_this_sys_matrix_spec_dist_for_corr=[], use_pseudo_gramian=False):
+        use_this_sys_matrix_spec_dist_for_corr=[], also_plot_random_order=False):
     
     options = {'graph_choices': graph_choices,
                'graphs': graphs,
@@ -144,7 +145,7 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                'plot_these_graph_matrices_spec_dist': plot_these_graph_matrices_spec_dist,
                'skip_toggling_of_edges_that_disconnect_graph': skip_toggling_of_edges_that_disconnect_graph,
                'use_this_sys_matrix_spec_dist_for_corr': use_this_sys_matrix_spec_dist_for_corr,
-               'use_pseudo_gramian': use_pseudo_gramian}
+               'also_plot_random_order': also_plot_random_order}
     
     if len(use_this_sys_matrix_spec_dist_for_corr) > 0:
         options['use_this_sys_matrix_spec_dist_for_corr'] = use_this_sys_matrix_spec_dist_for_corr[0]
@@ -152,17 +153,16 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
     for matrix_choice in matrix_choices:
         for input_choice in input_choices:
             for edge_score_choice in edge_score_choices:
-                if (matrix_choice == 'neg_laplacian' or matrix_choice == 'laplacian') and input_choice == 'all_ones':
-                    # neg_laplacian with all-ones input results in a trivial all-ones gramian.
-                    continue
-                if 'use_pseudo_gramian' in options and options['use_pseudo_gramian'] and 'laplacian' not in matrix_choice:
-                    # Pseudo-gramian is only defined for semistable systems
-                    continue
-                options['edge_score_choice'] = edge_score_choice
-                options['plots'] = [{'y1': 'sys_mat_spec_dist', 'y2': edge_score_choice}]
-                options['graph_matrix_choice'] = matrix_choice
-                options['input'] = input_choice
-                graph_edge_toggling_expt(options, plot_all_ignoring_low_corr=plot_all_ignoring_low_corr,
-                                         cumulative=cumulative, debug_dont_plot=debug_dont_plot)
+                for gramian_choice in gramian_choices:
+                    options['gramian_choice'] = gramian_choice
+                    if (matrix_choice == 'neg_laplacian' or matrix_choice == 'laplacian') and input_choice == 'all_ones':
+                        # neg_laplacian with all-ones input results in a trivial all-ones gramian.
+                        continue
+                    options['edge_score_choice'] = edge_score_choice
+                    options['plots'] = [{'y1': 'sys_mat_spec_dist', 'y2': edge_score_choice}]
+                    options['graph_matrix_choice'] = matrix_choice
+                    options['input'] = input_choice
+                    graph_edge_toggling_expt(options, plot_all_ignoring_low_corr=plot_all_ignoring_low_corr,
+                                            cumulative=cumulative, debug_dont_plot=debug_dont_plot)
 
 

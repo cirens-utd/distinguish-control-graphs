@@ -128,18 +128,20 @@ def pseudo_gramian_for_semistable_A_inf_horizon(A, B, tol=1e-4, opt_tol=1e-5):
         P >> 0                       # optional: P is PSD
     ]
 
+    # print(cp.installed_solvers())
     prob = cp.Problem(cp.Minimize(0), constraints=constraints)
-    # prob.solve(solver=cp.GUROBI)   # or solver=cp.CVXOPT etc.
-    prob.solve(solver=cp.SCS, eps=opt_tol)   # or solver=cp.CVXOPT etc.
+    prob.solve(solver=cp.MOSEK)#, FeasibilityTol=opt_tol, OptimalityTol=opt_tol)   # or solver=cp.CVXOPT etc.
+    # prob.solve(solver=cp.SCS, eps=opt_tol)   # or solver=cp.CVXOPT etc.
         # , feastol=opt_tol, reltol=opt_tol, feastol_inacc=opt_tol, reltol_inacc=opt_tol, epstol=opt_tol)
     P_opt = P.value
 
     if np.linalg.norm(J @ P_opt @ J.T) > tol or np.linalg.norm(A @ P_opt + P_opt @ A.T + Qc) > tol or not np.all(np.linalg.eigvals(P_opt) > -tol):
         # print(f"P_opt = {P_opt}", end="\n\n")
         print(f"tol = {tol}")
-        print(f"norm(J @ P_opt @ J.T) = {np.linalg.norm(J @ P_opt @ J.T):.3g}")
-        print(f"norm(A @ P_opt + P_opt @ A.T + Qc) = {np.linalg.norm(A @ P_opt + P_opt @ A.T + Qc):.3g}")
+        print(f"norm(J @ P_opt @ J.T) = {np.linalg.norm(J @ P_opt @ J.T, ord=1):.3g}")
+        print(f"norm(A @ P_opt + P_opt @ A.T + Qc) = {np.linalg.norm(A @ P_opt + P_opt @ A.T + Qc, ord=1):.3g}")
         print(f"P_opt >> 0: {np.all(np.linalg.eigvals(P_opt) > -tol)}")
+        print(f"prob.status = {prob.status}")
         raise ValueError("Problem with P_opt")
 
     return P_opt

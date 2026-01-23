@@ -5,15 +5,19 @@ import networkx as nx
 
 matrix_choices = ['adjacency', 'neg_laplacian', 'normalized_laplacian', 'neg_normalized_laplacian',
                   'signless_laplacian', 'neg_signless_laplacian', 'distance_normalized_laplacian', 'neg_distance_normalized_laplacian']
-input_choices = ['all_ones', 'identity', 'identity_transf', 'zfs', 'zfs_transf', 'zfs_new']
+# input_choices = ['all_ones', 'identity', 'identity_transf', 'zfs', 'zfs_transf', 'zfs_new']
+input_choices = ['all_ones', 'identity', 'zfs', 'zfs_transf', 'zfs_new']
 
 graph_choices = [{'type': 'connected_ER', 'n': 20, 'p': 0.5},
                  {'type': 'connected_RG', 'n': 20, 'r': 0.25},
                  {'type':           'BA', 'n': 20, 'm': 5, 'init': {'type': 'complete', 'n': 5}}]
 graphs = [get_graph(graph_choice=choice) for choice in graph_choices]
 
+# graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices, graphs, matrix_choices, input_choices,
+#         edge_score_choices=['Wc_spec_dist'], debug_dont_plot=True)#, plot_all_ignoring_low_corr=True)
+
 graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices, graphs, matrix_choices, input_choices,
-        edge_score_choices=['Wc_spec_dist'], debug_dont_plot=True)#, plot_all_ignoring_low_corr=True)
+        edge_score_choices=['Wc_spec_dist'], use_pseudo_gramian=True, debug_dont_plot=True)#, plot_all_ignoring_low_corr=True)
 
 
 

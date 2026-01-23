@@ -76,6 +76,7 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
         ax2.set_ylabel(y2_label, color="C1")
         ax2.tick_params(axis="y", labelcolor="C1")
 
+        using_pseudo_gramian = 'use_pseudo_gramian' in options and options['use_pseudo_gramian']
         plt.title(f'Graph: {options['graph_choice']}\n' + 
                   f'System matrix: {options['graph_matrix_choice']}\n' + 
                     # f'($\\lambda_1$ = {other_results['A_lambda_min']:.2g}' +
@@ -83,7 +84,8 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
                   f'Input: {options['input']}\n' +
                 #   f'Correlation coefficient: {pearson_coef:.2g}') +
                   f'Spearman coefficient: {spearman_coef:.2g}\n' +
-                  f'Kendall\'s Tau coefficient: {kendalltau_coef:.2g}')
+                  f'Kendall\'s Tau coefficient: {kendalltau_coef:.2g}\n' +
+                  f'Using pseudo-gramian: {using_pseudo_gramian}')
 
         if created_figure:
             plt.tight_layout()
@@ -157,6 +159,11 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                     options['gramian_choice'] = gramian_choice
                     if (matrix_choice == 'neg_laplacian' or matrix_choice == 'laplacian') and input_choice == 'all_ones':
                         # neg_laplacian with all-ones input results in a trivial all-ones gramian.
+                        continue
+                    if gramian_choice == 'pseudo_infinite_continuous' and \
+                        matrix_choice in ['adjacency', 'normalized_laplacian', 'distance_normalized_laplacian',
+                                'signless_laplacian']:
+                        # Pseudo-gramian is only defined for semistable systems
                         continue
                     options['edge_score_choice'] = edge_score_choice
                     options['plots'] = [{'y1': 'sys_mat_spec_dist', 'y2': edge_score_choice}]

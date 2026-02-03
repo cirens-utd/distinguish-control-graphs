@@ -220,14 +220,14 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
 
     if ranking_of_edges is None:
         if nx.is_directed(G):
-            edge_iter = [(i, j) for i in range(n) for j in range(n) if i != j]
+            edges = [(i, j) for i in range(n) for j in range(n) if i != j]
         else:
-            edge_iter = [(i, j) for i in range(n) for j in range(n) if j > i + 1]
+            edges = [(i, j) for i in range(n) for j in range(n) if j > i + 1]
     else:
         sorted_data_asc = sorted(ranking_of_edges.items(), key=lambda item: item[1][options['edge_score_choice']])
-        edge_iter = [item[0] for item in sorted_data_asc]
+        edges = [item[0] for item in sorted_data_asc]
 
-    for i, j in tqdm(edge_iter):
+    for i, j in tqdm(edges, leave=False):
         u, v = nodes[i], nodes[j]
 
         # Modify the graph: toggle edge presence

@@ -19,7 +19,8 @@ plt.rcParams.update({
 # rng = np.random.default_rng(GLOBAL_SEED)
 
 
-def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None):
+def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None,
+                 ranking_of_edges_by_single_edge_flip=None):
     sorted_data_asc = sorted(results_per_edge.items(), key=lambda item: item[1][options['edge_score_choice']])
     n = len(sorted_data_asc)
     for plot in options['plots']:
@@ -57,6 +58,7 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
         ax1.set_ylabel(y1_label, color="C0")
         ax1.tick_params(axis="y", labelcolor="C0")
         ax1.grid(alpha=0.3)
+
         if len(y3) > 0:
             ymin_ax, ymax_ax = ax1.get_ylim()
             for i, matrix_choice in enumerate(options['plot_these_graph_matrices_spec_dist']):
@@ -67,7 +69,7 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
                     y_scaled = ymin_ax + (y3[i] - np.min(y3[i])) * (ymax_ax - ymin_ax) / (np.max(y3[i]) - np.min(y3[i]))
                 else:
                     y_scaled = np.full_like(y3[i], (ymin_ax + ymax_ax) / 2)
-                ax1.plot(x, y_scaled, marker="o", linestyle="--", color=f"C{i+2}", label=f'{matrix_choice}_spec_dist')
+                ax1.plot(x, y_scaled, marker="o", linestyle="--", color=f"C{i+3}", label=f'{matrix_choice}_spec_dist')
             ax1.legend(loc="upper left")
 
         y2_label = plot['y2']
@@ -75,8 +77,17 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
         ax2.plot(x, y2, marker="s", linestyle="--", color="C1", label=y2_label)
         ax2.set_ylabel(y2_label, color="C1")
         ax2.tick_params(axis="y", labelcolor="C1")
-
-        using_pseudo_gramian = 'use_pseudo_gramian' in options and options['use_pseudo_gramian']
+        
+        if 'plot_single_edge_flip_scores' in options and options['plot_single_edge_flip_scores']:
+            y4 = [ranking_of_edges_by_single_edge_flip[item[0]][options['edge_score_choice']] for item in sorted_data_asc]
+            ymin_ax2, ymax_ax2 = ax2.get_ylim()
+            if np.max(y4) != np.min(y4):
+                y4_scaled = ymin_ax2 + (y4 - np.min(y4)) * (ymax_ax2 - ymin_ax2) / (np.max(y4) - np.min(y4))
+            else:
+                y4_scaled = np.full_like(y4, (ymin_ax2 + ymax_ax2) / 2)
+            ax2.plot(x, y4_scaled, marker="o", linestyle="--", color="C2", label=f'{options['edge_score_choice']}_single_edge_flip')
+            ax2.legend(loc="upper right")
+        
         plt.title(f'Graph: {options['graph_choice']}\n' + 
                   f'System matrix: {options['graph_matrix_choice']}\n' + 
                     # f'($\\lambda_1$ = {other_results['A_lambda_min']:.2g}' +
@@ -85,7 +96,7 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
                 #   f'Correlation coefficient: {pearson_coef:.2g}') +
                   f'Spearman coefficient: {spearman_coef:.2g}\n' +
                   f'Kendall\'s Tau coefficient: {kendalltau_coef:.2g}\n' +
-                  f'Using pseudo-gramian: {using_pseudo_gramian}')
+                  f'Gramian: {options['gramian_choice']}')
 
         if created_figure:
             plt.tight_layout()
@@ -100,7 +111,7 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
 # compute spectral distance of Gramian due to this with B = 1 (include options for other metrics and inputs)
 # plot given variables (include options for various variables to plot)
 
-def graph_edge_toggling_expt(options, debug_dont_plot=False, cumulative=False, plot_all_ignoring_low_corr=False):
+def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=False, plot_all_ignoring_low_corr=False):
     graphs = options['graphs']
     graph_choices = options['graph_choices']
     n_plots = len(graphs)
@@ -111,24 +122,27 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, cumulative=False, p
         temp_options = deepcopy(options)
         temp_options['graph'] = graph
         temp_options['graph_choice'] = graph_choices[idx]
-        if cumulative:
-            ranking_of_edges, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options)
-            results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options, ranking_of_edges=ranking_of_edges)
+        if multiple_toggles:
+            ranking_of_edges_by_single_edge_flip, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options)
+            results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options, ranking_of_edges=ranking_of_edges_by_single_edge_flip)
         else:
+            ranking_of_edges_by_single_edge_flip = None
             results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options)
-        corr_coef_score_this_iter = plot_results(results_per_edge_toggled, other_results, temp_options, ax1=ax1)
+        corr_coef_score_this_iter = plot_results(results_per_edge_toggled, other_results, temp_options, ax1=ax1,
+                                                 ranking_of_edges_by_single_edge_flip=ranking_of_edges_by_single_edge_flip)
         if np.sum(np.array(corr_coef_score_this_iter)) < len(corr_coef_score_this_iter)/2:
             low_corr_coef_score = corr_coef_score_this_iter
     if (low_corr_coef_score is not None) and (not plot_all_ignoring_low_corr):
         plt.close(fig)
         print(f"Skipping plot since correlation coefficients are {[f'{c:.2g}, ' for c in low_corr_coef_score]}.")
     else:
-        if cumulative:
-            fig.supxlabel(f"Edge flips, cumulative, in the order sorted by change in {temp_options['edge_score_choice']}")
+        if multiple_toggles:
+            fig.supxlabel(f"Multiple edges flipped. X-axis is the number of the experiment.")
         else:
             fig.supxlabel(f"Edge flips (one at a time) sorted by change in {options['edge_score_choice']}")
         plt.tight_layout()
         if not debug_dont_plot:
+            # fig.legend(loc='outside lower center', ncol=2)
             plt.show()
         else:
             plt.close(fig)
@@ -137,9 +151,9 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, cumulative=False, p
 
 def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices, graphs, matrix_choices, input_choices,
         edge_score_choices, gramian_choices=['finite_continuous'],
-        t_horizon=1, plot_all_ignoring_low_corr=False, cumulative=False, debug_dont_plot=False,
+        t_horizon=1, plot_all_ignoring_low_corr=False, multiple_toggles=False, debug_dont_plot=False,
         plot_these_graph_matrices_spec_dist=[], skip_toggling_of_edges_that_disconnect_graph=False,
-        use_this_sys_matrix_spec_dist_for_corr=[], also_plot_random_order=False):
+        use_this_sys_matrix_spec_dist_for_corr=[], also_plot_random_order_in_cumulative=False, plot_single_edge_flip_scores=False):
     
     options = {'graph_choices': graph_choices,
                'graphs': graphs,
@@ -147,7 +161,8 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                'plot_these_graph_matrices_spec_dist': plot_these_graph_matrices_spec_dist,
                'skip_toggling_of_edges_that_disconnect_graph': skip_toggling_of_edges_that_disconnect_graph,
                'use_this_sys_matrix_spec_dist_for_corr': use_this_sys_matrix_spec_dist_for_corr,
-               'also_plot_random_order': also_plot_random_order}
+               'also_plot_random_order_in_cumulative': also_plot_random_order_in_cumulative,
+               'plot_single_edge_flip_scores': plot_single_edge_flip_scores}
     
     if len(use_this_sys_matrix_spec_dist_for_corr) > 0:
         options['use_this_sys_matrix_spec_dist_for_corr'] = use_this_sys_matrix_spec_dist_for_corr[0]
@@ -170,6 +185,6 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                     options['graph_matrix_choice'] = matrix_choice
                     options['input'] = input_choice
                     graph_edge_toggling_expt(options, plot_all_ignoring_low_corr=plot_all_ignoring_low_corr,
-                                            cumulative=cumulative, debug_dont_plot=debug_dont_plot)
+                                            multiple_toggles=multiple_toggles, debug_dont_plot=debug_dont_plot)
 
 

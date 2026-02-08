@@ -20,8 +20,8 @@ plt.rcParams.update({
 
 
 def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None,
-                 ranking_of_edges_by_single_edge_flip=None):
-    sorted_data_asc = sorted(results_per_edge.items(), key=lambda item: item[1][options['edge_score_choice']])
+                 ranking_of_edges_by_single_edge_flip=None, sort_by=None):
+    sorted_data_asc = sorted(results_per_edge.items(), key=lambda item: item[1][sort_by])
     n = len(sorted_data_asc)
     for plot in options['plots']:
         x = list(range(1, n + 1))
@@ -88,15 +88,18 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
             ax2.plot(x, y4_scaled, marker="o", linestyle="--", color="C2", label=f'{options['edge_score_choice']}_single_edge_flip')
             ax2.legend(loc="upper right")
         
-        plt.title(f'Graph: {options['graph_choice']}\n' + 
-                  f'System matrix: {options['graph_matrix_choice']}\n' + 
-                    # f'($\\lambda_1$ = {other_results['A_lambda_min']:.2g}' +
-                    # f', $\\lambda_n$ = {other_results['A_lambda_max']:.2g})\n' + 
-                  f'Input: {options['input']}\n' +
-                #   f'Correlation coefficient: {pearson_coef:.2g}') +
-                  f'Spearman coefficient: {spearman_coef:.2g}\n' +
-                  f'Kendall\'s Tau coefficient: {kendalltau_coef:.2g}\n' +
-                  f'Gramian: {options['gramian_choice']}')
+        title = f'Graph: {options['graph_choice']}\n' + \
+                f'System matrix: {options['graph_matrix_choice']}\n' + \
+                f'Input: {options['input']}\n' + \
+                f'Spearman coefficient: {spearman_coef:.2g}\n' + \
+                f'Kendall\'s Tau coefficient: {kendalltau_coef:.2g}\n' + \
+                f'Gramian: {options['gramian_choice']}'
+                # f'($\\lambda_1$ = {other_results['A_lambda_min']:.2g}' + \
+                # f', $\\lambda_n$ = {other_results['A_lambda_max']:.2g})\n' + \
+        if options['edge_score_choice'] == 'random':
+            title += f'\nRandom order of edges'
+
+        plt.title(title)
 
         if created_figure:
             plt.tight_layout()
@@ -111,7 +114,8 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
 # compute spectral distance of Gramian due to this with B = 1 (include options for other metrics and inputs)
 # plot given variables (include options for various variables to plot)
 
-def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=False, plot_all_ignoring_low_corr=False):
+def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=False, plot_all_ignoring_low_corr=False,
+                             sort_by=None):
     graphs = options['graphs']
     graph_choices = options['graph_choices']
     n_plots = len(graphs)
@@ -129,7 +133,8 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
             ranking_of_edges_by_single_edge_flip = None
             results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options)
         corr_coef_score_this_iter = plot_results(results_per_edge_toggled, other_results, temp_options, ax1=ax1,
-                                                 ranking_of_edges_by_single_edge_flip=ranking_of_edges_by_single_edge_flip)
+                                                 ranking_of_edges_by_single_edge_flip=ranking_of_edges_by_single_edge_flip,
+                                                 sort_by=sort_by)
         if np.sum(np.array(corr_coef_score_this_iter)) < len(corr_coef_score_this_iter)/2:
             low_corr_coef_score = corr_coef_score_this_iter
     if (low_corr_coef_score is not None) and (not plot_all_ignoring_low_corr):
@@ -153,7 +158,9 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
         edge_score_choices, gramian_choices=['finite_continuous'],
         t_horizon=1, plot_all_ignoring_low_corr=False, multiple_toggles=False, debug_dont_plot=False,
         plot_these_graph_matrices_spec_dist=[], skip_toggling_of_edges_that_disconnect_graph=False,
-        use_this_sys_matrix_spec_dist_for_corr=[], also_plot_random_order_in_cumulative=False, plot_single_edge_flip_scores=False):
+        use_this_sys_matrix_spec_dist_for_corr=[], plot_this_quantity_instead_of_rand_edge_score=None,
+        plot_single_edge_flip_scores=False, rand_edge_order={},
+        sort_by_this_quantity_instead_of_rand_edge_score=None):
     
     options = {'graph_choices': graph_choices,
                'graphs': graphs,
@@ -161,8 +168,8 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                'plot_these_graph_matrices_spec_dist': plot_these_graph_matrices_spec_dist,
                'skip_toggling_of_edges_that_disconnect_graph': skip_toggling_of_edges_that_disconnect_graph,
                'use_this_sys_matrix_spec_dist_for_corr': use_this_sys_matrix_spec_dist_for_corr,
-               'also_plot_random_order_in_cumulative': also_plot_random_order_in_cumulative,
-               'plot_single_edge_flip_scores': plot_single_edge_flip_scores}
+               'plot_single_edge_flip_scores': plot_single_edge_flip_scores,
+               'rand_edge_order': rand_edge_order}
     
     if len(use_this_sys_matrix_spec_dist_for_corr) > 0:
         options['use_this_sys_matrix_spec_dist_for_corr'] = use_this_sys_matrix_spec_dist_for_corr[0]
@@ -180,11 +187,25 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                                 'signless_laplacian']:
                         # Pseudo-gramian is only defined for semistable systems
                         continue
+
                     options['edge_score_choice'] = edge_score_choice
-                    options['plots'] = [{'y1': 'sys_mat_spec_dist', 'y2': edge_score_choice}]
+
+                    if edge_score_choice == 'random' and plot_this_quantity_instead_of_rand_edge_score is not None:
+                        quantity_to_plot_if_rand_edge_order = plot_this_quantity_instead_of_rand_edge_score
+                    else:
+                        quantity_to_plot_if_rand_edge_order = edge_score_choice
+                    options['plots'] = [{'y1': 'sys_mat_spec_dist', 'y2': quantity_to_plot_if_rand_edge_order}]
+                
                     options['graph_matrix_choice'] = matrix_choice
                     options['input'] = input_choice
+
+                    if edge_score_choice == 'random' and sort_by_this_quantity_instead_of_rand_edge_score is not None:
+                        quantity_to_sort_by_if_random_edge_order = sort_by_this_quantity_instead_of_rand_edge_score
+                    else:
+                        quantity_to_sort_by_if_random_edge_order = edge_score_choice
+
                     graph_edge_toggling_expt(options, plot_all_ignoring_low_corr=plot_all_ignoring_low_corr,
-                                            multiple_toggles=multiple_toggles, debug_dont_plot=debug_dont_plot)
+                                             multiple_toggles=multiple_toggles, debug_dont_plot=debug_dont_plot,
+                                             sort_by=quantity_to_sort_by_if_random_edge_order)
 
 

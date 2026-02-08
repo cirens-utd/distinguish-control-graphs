@@ -291,6 +291,8 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
                 score = W_logdet_diff
             case 'Wc_rank_diff':
                 score = W_rank_diff
+            case 'random':
+                score = options['rand_edge_order'][(u, v)]
             case _:
                 raise ValueError(f'Edge score choice {edge_score_choice} not supported.')
         

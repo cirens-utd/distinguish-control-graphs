@@ -1,53 +1,49 @@
+# from modules.single_graph_edge_expt import graph_edge_toggling_expt_using_given_graphs_and_scoring_choice
+# from modules.graphs import get_graph
+# import networkx as nx
+# # %config InlineBackend.figure_format = 'svg'
+
+# matrix_choices = ['adjacency', 'neg_laplacian', 'normalized_laplacian', 'neg_normalized_laplacian',
+#                   'signless_laplacian', 'neg_signless_laplacian', 'distance_normalized_laplacian', 'neg_distance_normalized_laplacian']
+# # input_choices = ['all_ones', 'identity', 'identity_transf', 'zfs', 'zfs_transf', 'zfs_new']
+# input_choices = ['all_ones', 'identity', 'zfs', 'zfs_transf', 'zfs_new']
+
+# graph_choices = [{'type': 'connected_ER', 'n': 20, 'p': 0.5},
+#                  {'type': 'connected_RG', 'n': 20, 'r': 0.25},
+#                  {'type':           'BA', 'n': 20, 'm': 5, 'init': {'type': 'complete', 'n': 5}}]
+# graphs = [get_graph(graph_choice=choice) for choice in graph_choices]
+
+# # graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices, graphs, matrix_choices, input_choices,
+# #         edge_score_choices=['Wc_spec_dist'], debug_dont_plot=True)#, plot_all_ignoring_low_corr=True)
+
+# graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices, graphs, matrix_choices, input_choices,
+#         edge_score_choices=['Wc_spec_dist'], use_pseudo_gramian=True, debug_dont_plot=True)#, plot_all_ignoring_low_corr=True)
+
+
+
+
+
+
+
 from modules.single_graph_edge_expt import graph_edge_toggling_expt_using_given_graphs_and_scoring_choice
 from modules.graphs import get_graph
-import networkx as nx
+import numpy as np
 # %config InlineBackend.figure_format = 'svg'
-
-matrix_choices = ['adjacency', 'neg_laplacian', 'normalized_laplacian', 'neg_normalized_laplacian',
-                  'signless_laplacian', 'neg_signless_laplacian', 'distance_normalized_laplacian', 'neg_distance_normalized_laplacian']
-# input_choices = ['all_ones', 'identity', 'identity_transf', 'zfs', 'zfs_transf', 'zfs_new']
-input_choices = ['all_ones', 'identity', 'zfs', 'zfs_transf', 'zfs_new']
 
 graph_choices = [{'type': 'connected_ER', 'n': 20, 'p': 0.5},
                  {'type': 'connected_RG', 'n': 20, 'r': 0.25},
                  {'type':           'BA', 'n': 20, 'm': 5, 'init': {'type': 'complete', 'n': 5}}]
 graphs = [get_graph(graph_choice=choice) for choice in graph_choices]
+matrix_choices = ['adjacency', 'neg_laplacian', 'normalized_laplacian', 'neg_normalized_laplacian',
+                  'signless_laplacian', 'neg_signless_laplacian', 'distance_normalized_laplacian', 'neg_distance_normalized_laplacian']
+# input_choices = ['all_ones', 'identity', 'identity_transf', 'zfs', 'zfs_transf', 'zfs_new']
+input_choices = ['all_ones', 'identity', 'zfs', 'zfs_transf', 'zfs_new']
 
-# graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices, graphs, matrix_choices, input_choices,
-#         edge_score_choices=['Wc_spec_dist'], debug_dont_plot=True)#, plot_all_ignoring_low_corr=True)
+G = graphs[0]
+rand_edge_order = {(u, v): np.random.rand() for u in G.nodes() for v in G.nodes() if u != v}
 
 graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices, graphs, matrix_choices, input_choices,
-        edge_score_choices=['Wc_spec_dist'], use_pseudo_gramian=True, debug_dont_plot=True)#, plot_all_ignoring_low_corr=True)
-
-
-
-
-
-
-
-# from modules.single_graph_edge_expt import graph_edge_toggling_expt
-
-# graph_setting_ER = {'type': 'connected_ER', 'n': 20, 'p': 0.5}
-# graph_setting_RG = {'type': 'connected_RG', 'n': 20, 'r': 0.25}
-
-# graph_choices = [graph_setting_ER, graph_setting_RG]
-# matrix_choices = ['adjacency', 'laplacian', 'normalized_laplacian', 'signless_laplacian', 'distance_normalized_laplacian']
-# input_choices = ['all_ones', 'identity', 'zfs', 'zfs_new']
-
-# options =  {'graph_choice': graph_choices,
-#             't_horizon': 1}
-
-# edge_score_choices = ['Wc_trace_diff', 'Wc_lambda_min_diff', 'Wc_pinv_trace_diff', 'Wc_logdet_diff']
-
-# for matrix_choice in matrix_choices:
-#     for input_choice in input_choices:
-#         for edge_score_choice in edge_score_choices:
-#                 options['edge_score_choice'] = edge_score_choice
-#                 options['plots'] = [{'y1': 'sys_mat_spec_dist', 'y2': edge_score_choice}]
-#                 options['graph_matrix_choice'] = matrix_choice
-#                 options['input'] = input_choice
-#                 graph_edge_toggling_expt(options, cumulative=True, debug_dont_plot=True)
-
-
+        edge_score_choices=['Wc_spec_dist', 'random'], plot_and_sort_by_this_quantity_instead_of_random_edge_score='Wc_spec_dist',
+        multiple_toggles=True, rand_edge_order=rand_edge_order)#, plot_single_edge_flip_scores=True)#, plot_all_ignoring_low_corr=True)
 
 

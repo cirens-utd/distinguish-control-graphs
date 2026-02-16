@@ -52,6 +52,18 @@ def get_graph(graph_choice):
     return G
 
 
+def get_graph_param_from_graph_choice(graph_choice):
+    match graph_choice['type']:
+        case 'connected_ER':
+            return graph_choice['p']
+        case 'connected_RG':
+            return graph_choice['r']
+        case 'BA':
+            return graph_choice['m']
+        case _:
+            raise ValueError(f"Unsupported graph type: {graph_choice['type']}")
+
+
 # ---------- get system matrix related to graph ----------
 def get_system_matrix_from_graph(G, matrix_choice="adjacency"):
 
@@ -227,7 +239,7 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
         sorted_data_asc = sorted(ranking_of_edges.items(), key=lambda item: item[1][options['edge_score_choice']])
         edges = [item[0] for item in sorted_data_asc]
 
-    for i, j in tqdm(edges, leave=False):
+    for i, j in tqdm(edges, leave=False, disable=True):
         u, v = nodes[i], nodes[j]
 
         # Modify the graph: toggle edge presence
@@ -292,7 +304,10 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
             case 'Wc_rank_diff':
                 score = W_rank_diff
             case 'random':
-                score = options['rand_edge_order'][(u, v)]
+                if len(options['rand_edge_order']) > 0:
+                    score = options['rand_edge_order'][(u, v)]
+                else:
+                    score = np.random.rand()
             case _:
                 raise ValueError(f'Edge score choice {edge_score_choice} not supported.')
         

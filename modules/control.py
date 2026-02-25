@@ -177,3 +177,47 @@ def pseudo_gramian_for_semistable_A_inf_horizon(A, B, t=np.inf, tol=1e-4, opt_to
     return P_opt
 
 
+import numpy as np
+
+def compute_energy_transfer_edge_centrality(A, T):
+    """
+    Compute c_ij from adjacency matrix A up to time T.
+    
+    Parameters
+    ----------
+    A : numpy.ndarray (n x n)
+        Adjacency matrix
+    T : int
+        Time horizon
+    
+    Returns
+    -------
+    C_T : numpy.ndarray (n x n)
+        Matrix C_T where C_T[i,j] = c_ij^{(T)}
+    """
+    n = A.shape[0]
+    H_t = np.zeros((n, n))
+    C_t = np.zeros((n, n))
+    
+    A_power = np.eye(n)  # A^0
+
+    if T < 2:
+        raise ValueError(f"T must be at least 2; recommended value is T = 2*n (= {2*n}) or T = n (= {n})")
+    
+    for t in range(1, T):
+        # accumulate H^{(t)} = sum_{k=0}^{t-1} (A^k)^2 elementwise
+        H_t += A_power**2
+        
+        # compute p^{(t)} and q^{(t)}
+        p_t = H_t.sum(axis=0)  # column sums
+        q_t = H_t.sum(axis=1)  # row sums
+        
+        # accumulate c_ij^{(t)}
+        C_t += np.outer(q_t, p_t)
+        
+        # update A^k
+        A_power = A_power @ A
+    
+    C_T = C_t
+    
+    return C_T

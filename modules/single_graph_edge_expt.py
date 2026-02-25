@@ -123,6 +123,9 @@ def compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_cor
     results_file = options['results_file']
     corr_coef_scores_avg = deepcopy(all_corr_coef_score_results_for_all_graphs[0])
     corr_coef_scores_std = deepcopy(all_corr_coef_score_results_for_all_graphs[0])
+    densities = options['graph_metrics']['density']
+    density_avg = np.mean(densities)
+    density_std = np.std(densities)
     for quantity_pair in corr_coef_scores_avg.keys():
         results_for_this_pair = [all_corr_coef_score_results_for_all_graphs[j][quantity_pair] for j in range(len(all_corr_coef_score_results_for_all_graphs))]
         corr_coef_scores_avg[quantity_pair] = {}
@@ -133,19 +136,21 @@ def compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_cor
             corr_coef_scores_std[quantity_pair][metric] = np.std(values)
         if results_file is not None:
             with open(results_file, 'a') as f:
-                # format: n_graphs; sys_matrix; graph_type; n_nodes; graph_param; input; edge_score; quantity_pair; metric; corr_coef_avg; corr_coef_std; metric; corr_coef_avg; corr_coef_std;
-                f.write(f"{len(options['graphs'])}; ")
-                f.write(f"{options['graph_matrix_choice']}; ")
+                # format: n_graphs, sys_matrix, graph_type, n_nodes, graph_param, density_avg, density_std, input, edge_score, quantity_pair_in_quotations, metric_1, corr_coef_avg_1, corr_coef_std_1, metric_2, corr_coef_avg_2, corr_coef_std_2
+                f.write(f"{len(options['graphs'])}, ")
+                f.write(f"{options['graph_matrix_choice']}, ")
                 graph_type = options['graph_choices'][0]['type']
-                f.write(f"{graph_type}; ")
-                f.write(f"{options['graph_choices'][0]['n']}; ")
+                f.write(f"{graph_type}, ")
+                f.write(f"{options['graph_choices'][0]['n']}, ")
                 param = get_graph_param_from_graph_choice(options['graph_choices'][0])
-                f.write(f"{param}; ")
-                f.write(f"{options['input']}; ")
-                f.write(f"{options['edge_score_choice']}; ")
-                f.write(f"{quantity_pair}; ")
+                f.write(f"{param}, ")
+                f.write(f"{density_avg:.3g}, ")
+                f.write(f"{density_std:.3g}, ")
+                f.write(f"{options['input']}, ")
+                f.write(f"{options['edge_score_choice']}, ")
+                f.write(f"\" {quantity_pair}\", ")
                 for metric in corr_coef_scores_avg[quantity_pair].keys():
-                    f.write(f"{metric}; {corr_coef_scores_avg[quantity_pair][metric]:.3g}; {corr_coef_scores_std[quantity_pair][metric]:.3g}; ")
+                    f.write(f"{metric}, {corr_coef_scores_avg[quantity_pair][metric]:.3g}, {corr_coef_scores_std[quantity_pair][metric]:.3g}, ")
                 f.write("\n")
     return corr_coef_scores_avg, corr_coef_scores_std
 
@@ -164,8 +169,10 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
     n_plots = len(graphs)
     fig, axes = plt.subplots(nrows=1, ncols=n_plots, figsize=(5 * n_plots, 4), squeeze=False)
     low_corr_coef_score = None
+    high_corr_coef_score = None
     all_corr_coef_score_results_for_all_graphs = []
-    # change following line to tqdm
+    options['graph_metrics'] = {}
+    options['graph_metrics']['density'] = []
     for idx, graph in enumerate(tqdm(graphs, desc="Processing graphs")):
         ax1 = axes[0, idx]
         temp_options = deepcopy(options)
@@ -180,12 +187,16 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
         corr_coef_score_this_iter, all_corr_coef_scores_this_iter = plot_results(results_per_edge_toggled, other_results, temp_options,
                 ax1=ax1, ranking_of_edges_by_single_edge_flip=ranking_of_edges_by_single_edge_flip, sort_by=sort_by)
         all_corr_coef_score_results_for_all_graphs.append(all_corr_coef_scores_this_iter)
-        if np.sum(np.array(corr_coef_score_this_iter)) < len(corr_coef_score_this_iter)/2:
+        sum_of_corr_coef_scores_this_iter = np.sum(np.array(corr_coef_score_this_iter))
+        if sum_of_corr_coef_scores_this_iter < 0.5*len(corr_coef_score_this_iter):
             low_corr_coef_score = corr_coef_score_this_iter
+        elif sum_of_corr_coef_scores_this_iter > 0.7*len(corr_coef_score_this_iter):
+            high_corr_coef_score = corr_coef_score_this_iter
+        options['graph_metrics']['density'].append(nx.density(graph))
     
     compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_corr_coef_score_results_for_all_graphs, options)
 
-    if (not debug_dont_plot) and (low_corr_coef_score is not None) and (not plot_all_ignoring_low_corr):
+    if (not debug_dont_plot) and ((low_corr_coef_score is not None) and (high_corr_coef_score is None)) and (not plot_all_ignoring_low_corr):
         plt.close(fig)
         print(f"Skipping plot since correlation coefficients are {[f'{c:.2g}, ' for c in low_corr_coef_score]}.")
     else:

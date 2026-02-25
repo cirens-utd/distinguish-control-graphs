@@ -4,7 +4,14 @@ import itertools
 from numpy.ma.core import true_divide
 from scipy.sparse.csgraph import shortest_path
 from numpy.linalg import eigvalsh
-from modules.control import finite_time_gramian, pseudo_gramian_for_semistable_A_inf_horizon, finite_time_discrete_gramian, compute_controllability_rank, finite_horizon_gramian_through_integration
+from modules.control import (
+    finite_time_gramian, 
+    pseudo_gramian_for_semistable_A_inf_horizon,
+    finite_time_discrete_gramian, 
+    compute_controllability_rank, 
+    finite_horizon_gramian_through_integration, 
+    compute_energy_transfer_edge_centrality
+)
 from tqdm import trange, tqdm
 import matplotlib.pyplot as plt
 from copy import deepcopy
@@ -125,6 +132,8 @@ def get_input(G, options, B_old=None, T=None, modified_matrix=False):
                 B = zero_forcing_set_greedy(G)
         case 'zfs_new':
             B = zero_forcing_set_greedy(G)
+        case 'none':
+            B = None
         case _:
             raise ValueError(f'Unsupported input {options['input']}.')
     
@@ -183,6 +192,11 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
     A = get_system_matrix_from_graph(G, options['graph_matrix_choice'])
     B = get_input(G, options)
     
+    if edge_score_choice == 'ETEC':
+        ETEC = compute_energy_transfer_edge_centrality(get_system_matrix_from_graph(G, 'adjacency'), t)
+    elif edge_score_choice == 'ETEC_sys_mat':
+        ETEC = compute_energy_transfer_edge_centrality(A, t)
+    
     match options['gramian_choice']:
         case 'finite_continuous':
             gramian_func = finite_time_gramian
@@ -194,14 +208,21 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
             raise ValueError(f"Gramian choice {options['gramian_choice']} unsupported.")
     
     W = gramian_func(A, B, t=t)
-
+    # calculate_W_stuff = True
+    # if np.isinf(W).any() and edge_score_choice == 'ETEC':
+    #     calculate_W_stuff = False
+    # elif np.isinf(W).any():
+    #     raise ValueError("Gramian is not well-defined.")
+    calculate_W_stuff = 'ETEC' not in edge_score_choice
+    
     A_eigvals, Q1 = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(A)
-    W_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W)
-    W_trace = float(np.trace(W))
-    W_pinv = np.linalg.pinv(W)
-    W_pinv_trace = float(np.trace(W_pinv))
-    W_logdet = logdet_psd(W, W_eigval=W_eigvals)[0]
-    W_rank = np.linalg.matrix_rank(W)
+    if calculate_W_stuff:
+        W_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W)
+        W_trace = float(np.trace(W))
+        W_pinv = np.linalg.pinv(W)
+        W_pinv_trace = float(np.trace(W_pinv))
+        W_logdet = logdet_psd(W, W_eigval=W_eigvals)[0]
+        W_rank = np.linalg.matrix_rank(W)
 
     if compute_spec_dist_of_other_sys_matrices:
         other_system_matrix_choices = ['adjacency', 'neg_laplacian', 'normalized_laplacian', 'signless_laplacian', 'distance_normalized_laplacian']
@@ -217,7 +238,8 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
     other_results = {}
     other_results['A_lambda_min'] = float(np.min(A_eigvals))
     other_results['A_lambda_max'] = float(np.max(A_eigvals))
-    W_lambda_min = float(np.min(W_eigvals))
+    if calculate_W_stuff:
+        W_lambda_min = float(np.min(W_eigvals))
 
     nodes = list(G.nodes())
     n = len(nodes)
@@ -273,20 +295,24 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
             W_mod = pseudo_gramian_for_semistable_A_inf_horizon(A_mod, B_mod)
         else:
             W_mod = gramian_func(A_mod, B_mod, t=t)
+        
+        if calculate_W_stuff:
+            W_mod_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W_mod)
+            Wc_spec_dist = spectral_distance(W, W_mod, M1_eigvals=W_eigvals, M2_eigvals=W_mod_eigvals)
+            W_mod_lambda_min = float(np.min(W_mod_eigvals))
+            W_mod_pinv = np.linalg.pinv(W_mod)
+            W_mod_pinv_trace = float(np.trace(W_mod_pinv))
+            W_mod_logdet = logdet_psd(W_mod)[0]
+            W_mod_rank = np.linalg.matrix_rank(W_mod)
 
-        W_mod_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W_mod)
-        Wc_spec_dist = spectral_distance(W, W_mod, M1_eigvals=W_eigvals, M2_eigvals=W_mod_eigvals)
-        W_mod_lambda_min = float(np.min(W_mod_eigvals))
-        W_mod_pinv = np.linalg.pinv(W_mod)
-        W_mod_pinv_trace = float(np.trace(W_mod_pinv))
-        W_mod_logdet = logdet_psd(W_mod)[0]
-        W_mod_rank = np.linalg.matrix_rank(W_mod)
+            W_trace_diff = np.abs(W_trace - float(np.trace(W_mod)))
+            W_lambda_min_diff = np.abs(W_lambda_min - W_mod_lambda_min)
+            W_pinv_trace_diff = np.abs(W_pinv_trace - W_mod_pinv_trace)
+            W_logdet_diff = np.abs(W_logdet - W_mod_logdet)
+            W_rank_diff = np.abs(W_rank - W_mod_rank)
 
-        W_trace_diff = np.abs(W_trace - float(np.trace(W_mod)))
-        W_lambda_min_diff = np.abs(W_lambda_min - W_mod_lambda_min)
-        W_pinv_trace_diff = np.abs(W_pinv_trace - W_mod_pinv_trace)
-        W_logdet_diff = np.abs(W_logdet - W_mod_logdet)
-        W_rank_diff = np.abs(W_rank - W_mod_rank)
+        if 'ETEC' in edge_score_choice:
+            ETEC_score = ETEC[i, j]
 
         match edge_score_choice:
             case 'sys_mat_spec_dist':
@@ -303,6 +329,8 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
                 score = W_logdet_diff
             case 'Wc_rank_diff':
                 score = W_rank_diff
+            case 'ETEC' | 'ETEC_sys_mat':
+                score = ETEC_score
             case 'random':
                 if len(options['rand_edge_order']) > 0:
                     score = options['rand_edge_order'][(u, v)]
@@ -319,12 +347,15 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
         results_per_edge[(u, v)] = {}
         results_per_edge[(u, v)][edge_score_choice] = score
         results_per_edge[(u, v)]['sys_mat_spec_dist'] = A_spec_dist
-        results_per_edge[(u, v)]['Wc_trace_diff'] = W_trace_diff
-        results_per_edge[(u, v)]['Wc_lambda_min_diff'] = W_lambda_min_diff
-        results_per_edge[(u, v)]['Wc_pinv_trace_diff'] = W_pinv_trace_diff
-        results_per_edge[(u, v)]['Wc_logdet_diff'] = W_logdet_diff
-        results_per_edge[(u, v)]['Wc_rank_diff'] = W_rank_diff
-        results_per_edge[(u, v)]['Wc_spec_dist'] = Wc_spec_dist
+        if edge_score_choice == 'ETEC':
+            results_per_edge[(u, v)]['ETEC'] = ETEC_score
+        if calculate_W_stuff:
+            results_per_edge[(u, v)]['Wc_trace_diff'] = W_trace_diff
+            results_per_edge[(u, v)]['Wc_lambda_min_diff'] = W_lambda_min_diff
+            results_per_edge[(u, v)]['Wc_pinv_trace_diff'] = W_pinv_trace_diff
+            results_per_edge[(u, v)]['Wc_logdet_diff'] = W_logdet_diff
+            results_per_edge[(u, v)]['Wc_rank_diff'] = W_rank_diff
+            results_per_edge[(u, v)]['Wc_spec_dist'] = Wc_spec_dist
         
         if compute_spec_dist_of_other_sys_matrices:
             for i, matrix_choice in enumerate(other_system_matrix_choices):

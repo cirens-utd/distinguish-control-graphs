@@ -1,25 +1,92 @@
-n_graphs; sys_matrix; graph_type; n_nodes; graph_param; input; edge_score; quantity_pair; metric; corr_coef_avg; corr_coef_std; metric; corr_coef_avg; corr_coef_std;
-100; neg_laplacian; 'connected_ER'; 20; 0.5; identity; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.903; 0.099; kendalltau; 0.778; 0.124; 
-100; neg_laplacian; 'connected_RG'; 20; 0.25; identity; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.968; 0.075; kendalltau; 0.934; 0.087; 
-100; neg_laplacian; 'BA'; 20; 5; identity; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.969; 0.02; kendalltau; 0.876; 0.044; 
-100; neg_laplacian; 'connected_ER'; 20; 0.5; zfs; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.694; 0.271; kendalltau; 0.565; 0.242; 
-100; neg_laplacian; 'connected_RG'; 20; 0.25; zfs; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.966; 0.091; kendalltau; 0.926; 0.108; 
-100; neg_laplacian; 'BA'; 20; 5; zfs; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.622; 0.245; kendalltau; 0.499; 0.222; 
-100; neg_laplacian; 'connected_ER'; 20; 0.5; zfs_transf; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.892; 0.115; kendalltau; 0.768; 0.138; 
-100; neg_laplacian; 'connected_RG'; 20; 0.25; zfs_transf; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.965; 0.08; kendalltau; 0.925; 0.091; 
-100; neg_laplacian; 'BA'; 20; 5; zfs_transf; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.957; 0.08; kendalltau; 0.879; 0.106; 
-100; neg_laplacian; 'connected_ER'; 20; 0.5; zfs_new; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.694; 0.271; kendalltau; 0.565; 0.242; 
-100; neg_laplacian; 'connected_RG'; 20; 0.25; zfs_new; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.966; 0.091; kendalltau; 0.926; 0.108; 
-100; neg_laplacian; 'BA'; 20; 5; zfs_new; Wc_spec_dist; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.622; 0.245; kendalltau; 0.499; 0.222; 
-100; neg_laplacian; 'connected_ER'; 20; 0.5; identity; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.907; 0.1; kendalltau; 0.781; 0.124; 
-100; neg_laplacian; 'connected_RG'; 20; 0.25; identity; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 1; 0.000552; kendalltau; 0.991; 0.00446; 
-100; neg_laplacian; 'BA'; 20; 5; identity; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.96; 0.0538; kendalltau; 0.87; 0.0712; 
-100; neg_laplacian; 'connected_ER'; 20; 0.5; zfs; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.704; 0.259; kendalltau; 0.564; 0.234; 
-100; neg_laplacian; 'connected_RG'; 20; 0.25; zfs; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.998; 0.00352; kendalltau; 0.978; 0.0126; 
-100; neg_laplacian; 'BA'; 20; 5; zfs; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.618; 0.228; kendalltau; 0.46; 0.186; 
-100; neg_laplacian; 'connected_ER'; 20; 0.5; zfs_transf; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.885; 0.124; kendalltau; 0.755; 0.144; 
-100; neg_laplacian; 'connected_RG'; 20; 0.25; zfs_transf; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.999; 0.000744; kendalltau; 0.989; 0.0054; 
-100; neg_laplacian; 'BA'; 20; 5; zfs_transf; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.976; 0.0333; kendalltau; 0.898; 0.0571; 
-100; neg_laplacian; 'connected_ER'; 20; 0.5; zfs_new; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.704; 0.259; kendalltau; 0.564; 0.234; 
-100; neg_laplacian; 'connected_RG'; 20; 0.25; zfs_new; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.998; 0.00352; kendalltau; 0.978; 0.0126; 
-100; neg_laplacian; 'BA'; 20; 5; zfs_new; random; ('sys_mat_spec_dist', 'Wc_spec_dist'); spearmanr; 0.618; 0.228; kendalltau; 0.46; 0.186; 
+n_graphs, sys_matrix, graph_type, n_nodes, graph_param, density_avg, density_std, input, edge_score, quantity_pair_in_quotations, metric_1, corr_coef_avg_1, corr_coef_std_1, metric_2, corr_coef_avg_2, corr_coef_std_2
+100, adjacency, connected_ER, 20, 0.3, 0.3, 0.03, all_ones, ETEC, " ('sys_mat_spec_dist', 'ETEC')", spearmanr, 0.956, 0.038, kendalltau, 0.855, 0.062, 
+100, adjacency, connected_RG, 20, 0.25, 0.18, 0.0274, all_ones, ETEC, " ('sys_mat_spec_dist', 'ETEC')", spearmanr, 0.993, 0.00789, kendalltau, 0.947, 0.0239, 
+100, adjacency, BA, 20, 3, 0.289, 1.11E-16, all_ones, ETEC, " ('sys_mat_spec_dist', 'ETEC')", spearmanr, 0.946, 0.0252, kendalltau, 0.837, 0.0414, 
+100, adjacency, connected_ER, 20, 0.5, 0.498, 0.0356, all_ones, ETEC, " ('sys_mat_spec_dist', 'ETEC')", spearmanr, 0.447, 0.258, kendalltau, 0.33, 0.209, 
+100, adjacency, connected_RG, 20, 0.5, 0.469, 0.0659, all_ones, ETEC, " ('sys_mat_spec_dist', 'ETEC')", spearmanr, 0.933, 0.0615, kendalltau, 0.819, 0.0875, 
+100, adjacency, BA, 20, 5, 0.447, 0, all_ones, ETEC, " ('sys_mat_spec_dist', 'ETEC')", spearmanr, 0.634, 0.122, kendalltau, 0.485, 0.111, 
+100, adjacency, connected_ER, 20, 0.7, 0.697, 0.0346, all_ones, ETEC, " ('sys_mat_spec_dist', 'ETEC')", spearmanr, 0.924, 0.0692, kendalltau, 0.804, 0.091, 
+100, adjacency, connected_RG, 20, 0.75, 0.804, 0.068, all_ones, ETEC, " ('sys_mat_spec_dist', 'ETEC')", spearmanr, 0.979, 0.0234, kendalltau, 0.908, 0.0438, 
+100, adjacency, BA, 20, 8, 0.653, 2.22E-16, all_ones, ETEC, " ('sys_mat_spec_dist', 'ETEC')", spearmanr, 0.743, 0.0962, kendalltau, 0.586, 0.0972, 
+100, neg_laplacian, connected_ER, 20, 0.3, 0.3, 0.0344, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.997, 0.00419, kendalltau, 0.972, 0.0156, 
+100, neg_laplacian, connected_RG, 20, 0.25, 0.184, 0.0302, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.999, 0.00117, kendalltau, 0.99, 0.00619, 
+100, neg_laplacian, BA, 20, 3, 0.289, 1.11E-16, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.998, 0.00272, kendalltau, 0.977, 0.0108, 
+100, neg_laplacian, connected_ER, 20, 0.3, 0.3, 0.0344, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.987, 0.0233, kendalltau, 0.936, 0.0395, 
+100, neg_laplacian, connected_RG, 20, 0.25, 0.184, 0.0302, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.998, 0.00343, kendalltau, 0.978, 0.0129, 
+100, neg_laplacian, BA, 20, 3, 0.289, 1.11E-16, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.971, 0.0384, kendalltau, 0.9, 0.0622, 
+100, neg_laplacian, connected_ER, 20, 0.3, 0.3, 0.0344, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.996, 0.00679, kendalltau, 0.965, 0.0223, 
+100, neg_laplacian, connected_RG, 20, 0.25, 0.184, 0.0302, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.999, 0.00918, kendalltau, 0.988, 0.0184, 
+100, neg_laplacian, BA, 20, 3, 0.289, 1.11E-16, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.999, 0.00214, kendalltau, 0.981, 0.00809, 
+100, neg_laplacian, connected_ER, 20, 0.3, 0.3, 0.0344, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.989, 0.0143, kendalltau, 0.94, 0.034, 
+100, neg_laplacian, connected_RG, 20, 0.25, 0.184, 0.0302, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.996, 0.00552, kendalltau, 0.975, 0.0176, 
+100, neg_laplacian, BA, 20, 3, 0.289, 1.11E-16, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.972, 0.0292, kendalltau, 0.9, 0.0528, 
+100, neg_laplacian, connected_ER, 20, 0.5, 0.505, 0.0365, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.895, 0.101, kendalltau, 0.76, 0.117, 
+100, neg_laplacian, connected_RG, 20, 0.5, 0.484, 0.0644, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.897, 0.124, kendalltau, 0.781, 0.151, 
+100, neg_laplacian, BA, 20, 5, 0.447, 0, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.963, 0.0441, kendalltau, 0.874, 0.0701, 
+100, neg_laplacian, connected_ER, 20, 0.5, 0.505, 0.0365, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.691, 0.326, kendalltau, 0.558, 0.278, 
+100, neg_laplacian, connected_RG, 20, 0.5, 0.484, 0.0644, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.785, 0.208, kendalltau, 0.651, 0.208, 
+100, neg_laplacian, BA, 20, 5, 0.447, 0, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.574, 0.253, kendalltau, 0.429, 0.204, 
+100, neg_laplacian, connected_ER, 20, 0.5, 0.505, 0.0365, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.915, 0.0795, kendalltau, 0.783, 0.109, 
+100, neg_laplacian, connected_RG, 20, 0.5, 0.484, 0.0644, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.862, 0.165, kendalltau, 0.744, 0.188, 
+100, neg_laplacian, BA, 20, 5, 0.447, 0, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.983, 0.0172, kendalltau, 0.911, 0.0424, 
+100, neg_laplacian, connected_ER, 20, 0.5, 0.505, 0.0365, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.728, 0.238, kendalltau, 0.582, 0.213, 
+100, neg_laplacian, connected_RG, 20, 0.5, 0.484, 0.0644, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.768, 0.225, kendalltau, 0.634, 0.218, 
+100, neg_laplacian, BA, 20, 5, 0.447, 0, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.554, 0.267, kendalltau, 0.414, 0.211, 
+100, neg_laplacian, connected_ER, 20, 0.7, 0.698, 0.0325, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.998, 0.00257, kendalltau, 0.974, 0.0134, 
+100, neg_laplacian, connected_RG, 20, 0.75, 0.79, 0.0612, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.999, 0.00169, kendalltau, 0.987, 0.0109, 
+100, neg_laplacian, BA, 20, 8, 0.653, 2.22E-16, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.992, 0.00828, kendalltau, 0.946, 0.0242, 
+100, neg_laplacian, connected_ER, 20, 0.7, 0.698, 0.0325, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.993, 0.0119, kendalltau, 0.958, 0.0306, 
+100, neg_laplacian, connected_RG, 20, 0.75, 0.79, 0.0612, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.997, 0.00688, kendalltau, 0.98, 0.0215, 
+100, neg_laplacian, BA, 20, 8, 0.653, 2.22E-16, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.988, 0.0164, kendalltau, 0.935, 0.0328, 
+100, neg_laplacian, connected_ER, 20, 0.7, 0.698, 0.0325, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.997, 0.00456, kendalltau, 0.973, 0.0168, 
+100, neg_laplacian, connected_RG, 20, 0.75, 0.79, 0.0612, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.999, 0.00331, kendalltau, 0.985, 0.0156, 
+100, neg_laplacian, BA, 20, 8, 0.653, 2.22E-16, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.998, 0.00131, kendalltau, 0.973, 0.00748, 
+100, neg_laplacian, connected_ER, 20, 0.7, 0.698, 0.0325, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.995, 0.00863, kendalltau, 0.961, 0.0226, 
+100, neg_laplacian, connected_RG, 20, 0.75, 0.79, 0.0612, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.998, 0.00327, kendalltau, 0.983, 0.0159, 
+100, neg_laplacian, BA, 20, 8, 0.653, 2.22E-16, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.989, 0.0136, kendalltau, 0.938, 0.0298, 
+100, adjacency, connected_ER, 20, 0.3, 0.297, 0.0291, all_ones, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.978, 0.0216, kendalltau, 0.893, 0.044, 
+100, adjacency, connected_RG, 20, 0.25, 0.182, 0.0273, all_ones, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.974, 0.0196, kendalltau, 0.89, 0.043, 
+100, adjacency, BA, 20, 3, 0.289, 1.11E-16, all_ones, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.975, 0.0194, kendalltau, 0.883, 0.0395, 
+100, adjacency, connected_ER, 20, 0.3, 0.297, 0.0291, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.977, 0.0197, kendalltau, 0.891, 0.0458, 
+100, adjacency, connected_RG, 20, 0.25, 0.182, 0.0273, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.976, 0.0235, kendalltau, 0.896, 0.0501, 
+100, adjacency, BA, 20, 3, 0.289, 1.11E-16, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.976, 0.0141, kendalltau, 0.884, 0.0327, 
+100, adjacency, connected_ER, 20, 0.3, 0.297, 0.0291, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.976, 0.0258, kendalltau, 0.889, 0.0504, 
+100, adjacency, connected_RG, 20, 0.25, 0.182, 0.0273, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.974, 0.0271, kendalltau, 0.891, 0.0534, 
+100, adjacency, BA, 20, 3, 0.289, 1.11E-16, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.976, 0.0171, kendalltau, 0.882, 0.0377, 
+100, adjacency, connected_ER, 20, 0.3, 0.297, 0.0291, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.976, 0.0209, kendalltau, 0.888, 0.0464, 
+100, adjacency, connected_RG, 20, 0.25, 0.182, 0.0273, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.973, 0.028, kendalltau, 0.89, 0.0537, 
+100, adjacency, BA, 20, 3, 0.289, 1.11E-16, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.976, 0.0163, kendalltau, 0.884, 0.0351, 
+100, adjacency, connected_ER, 20, 0.3, 0.297, 0.0291, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.978, 0.018, kendalltau, 0.893, 0.042, 
+100, adjacency, connected_RG, 20, 0.25, 0.182, 0.0273, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.976, 0.0263, kendalltau, 0.896, 0.0499, 
+100, adjacency, BA, 20, 3, 0.289, 1.11E-16, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.973, 0.0236, kendalltau, 0.879, 0.0408, 
+100, adjacency, connected_ER, 20, 0.5, 0.503, 0.0317, all_ones, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.472, 0.246, kendalltau, 0.34, 0.188, 
+100, adjacency, connected_RG, 20, 0.5, 0.469, 0.0669, all_ones, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.62, 0.26, kendalltau, 0.47, 0.216, 
+100, adjacency, BA, 20, 5, 0.447, 0, all_ones, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.632, 0.21, kendalltau, 0.464, 0.166, 
+100, adjacency, connected_ER, 20, 0.5, 0.503, 0.0317, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.495, 0.255, kendalltau, 0.36, 0.195, 
+100, adjacency, connected_RG, 20, 0.5, 0.469, 0.0669, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.588, 0.295, kendalltau, 0.446, 0.235, 
+100, adjacency, BA, 20, 5, 0.447, 0, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.604, 0.244, kendalltau, 0.445, 0.19, 
+100, adjacency, connected_ER, 20, 0.5, 0.503, 0.0317, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.522, 0.247, kendalltau, 0.379, 0.192, 
+100, adjacency, connected_RG, 20, 0.5, 0.469, 0.0669, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.613, 0.283, kendalltau, 0.467, 0.228, 
+100, adjacency, BA, 20, 5, 0.447, 0, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.598, 0.211, kendalltau, 0.437, 0.169, 
+100, adjacency, connected_ER, 20, 0.5, 0.503, 0.0317, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.483, 0.264, kendalltau, 0.351, 0.202, 
+100, adjacency, connected_RG, 20, 0.5, 0.469, 0.0669, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.618, 0.294, kendalltau, 0.469, 0.236, 
+100, adjacency, BA, 20, 5, 0.447, 0, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.616, 0.202, kendalltau, 0.451, 0.16, 
+100, adjacency, connected_ER, 20, 0.5, 0.503, 0.0317, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.48, 0.24, kendalltau, 0.348, 0.183, 
+100, adjacency, connected_RG, 20, 0.5, 0.469, 0.0669, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.592, 0.303, kendalltau, 0.452, 0.239, 
+100, adjacency, BA, 20, 5, 0.447, 0, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.575, 0.211, kendalltau, 0.42, 0.166, 
+100, adjacency, connected_ER, 20, 0.7, 0.701, 0.0353, all_ones, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.966, 0.0601, kendalltau, 0.876, 0.0705, 
+100, adjacency, connected_RG, 20, 0.75, 0.804, 0.0601, all_ones, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.893, 0.0779, kendalltau, 0.769, 0.0975, 
+100, adjacency, BA, 20, 8, 0.653, 2.22E-16, all_ones, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.935, 0.0532, kendalltau, 0.809, 0.0726, 
+100, adjacency, connected_ER, 20, 0.7, 0.701, 0.0353, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.97, 0.0384, kendalltau, 0.88, 0.0641, 
+100, adjacency, connected_RG, 20, 0.75, 0.804, 0.0601, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.881, 0.0805, kendalltau, 0.758, 0.0966, 
+100, adjacency, BA, 20, 8, 0.653, 2.22E-16, identity, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.937, 0.0649, kendalltau, 0.814, 0.0744, 
+100, adjacency, connected_ER, 20, 0.7, 0.701, 0.0353, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.965, 0.0502, kendalltau, 0.874, 0.0709, 
+100, adjacency, connected_RG, 20, 0.75, 0.804, 0.0601, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.885, 0.078, kendalltau, 0.758, 0.0967, 
+100, adjacency, BA, 20, 8, 0.653, 2.22E-16, zfs, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.939, 0.044, kendalltau, 0.813, 0.0632, 
+100, adjacency, connected_ER, 20, 0.7, 0.701, 0.0353, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.97, 0.0311, kendalltau, 0.878, 0.0523, 
+100, adjacency, connected_RG, 20, 0.75, 0.804, 0.0601, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.899, 0.067, kendalltau, 0.777, 0.0878, 
+100, adjacency, BA, 20, 8, 0.653, 2.22E-16, zfs_transf, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.929, 0.0531, kendalltau, 0.802, 0.0679, 
+100, adjacency, connected_ER, 20, 0.7, 0.701, 0.0353, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.964, 0.0523, kendalltau, 0.874, 0.0694, 
+100, adjacency, connected_RG, 20, 0.75, 0.804, 0.0601, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.895, 0.0659, kendalltau, 0.771, 0.0858, 
+100, adjacency, BA, 20, 8, 0.653, 2.22E-16, zfs_new, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.927, 0.0699, kendalltau, 0.802, 0.0866, 
+100, adjacency, connected_ER, 20, 0.3, 0.297, 0.0291, all_ones, random, " ('sys_mat_spec_dist', 'Wc_spec_dist')", spearmanr, 0.979, 0.0186, kendalltau, 0.895, 0.042, 

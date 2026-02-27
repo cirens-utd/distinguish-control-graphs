@@ -1,10 +1,8 @@
 import numpy as np
 import networkx as nx
-import itertools
-from numpy.ma.core import true_divide
 from scipy.sparse.csgraph import shortest_path
 from numpy.linalg import eigvalsh
-from modules.control import (
+from my_control_lib import (
     finite_time_gramian, 
     pseudo_gramian_for_semistable_A_inf_horizon,
     finite_time_discrete_gramian, 
@@ -24,33 +22,37 @@ rng = np.random.default_rng(GLOBAL_SEED)
 
 
 # ---------- ER: connected sampler ----------
-def connected_erdos_renyi(n, p, rng, max_attempts=200):
+def connected_erdos_renyi(n, p, rng, max_attempts=200, need_connected=True):
     """Sample a connected G(n,p)."""
     for _ in range(max_attempts):
         G = nx.fast_gnp_random_graph(n, p, seed=int(rng.integers(0, 2**32 - 1)))
-        if nx.is_connected(G):
+        if (not need_connected) or nx.is_connected(G):
             return G
     raise RuntimeError(f"Could not sample a connected G(n,{p:.3f}) after {max_attempts} tries.")
 
 
-def connected_random_geometric(n, r, rng, max_attempts=200):
+def connected_random_geometric(n, r, rng, max_attempts=200, need_connected=True):
     """Sample a connected random geometric graph."""
     for _ in range(max_attempts):
         G = nx.random_geometric_graph(n, r, seed=int(rng.integers(0, 2**32 - 1)))
-        if nx.is_connected(G):
+        if (not need_connected) or nx.is_connected(G):
             return G
     raise RuntimeError(f"Could not sample a connected RG(n,{r:.3f}) after {max_attempts} tries.")
 
 
 def get_graph(graph_choice):
     match graph_choice['type']:
+        case 'ER':
+            G = connected_erdos_renyi(n=graph_choice['n'], p=graph_choice['p'], rng=rng, need_connected=False)
+        case 'RG':
+            G = connected_random_geometric(n=graph_choice['n'], r=graph_choice['r'], rng=rng, need_connected=False)
         case 'connected_ER':
             G = connected_erdos_renyi(n=graph_choice['n'], p=graph_choice['p'], rng=rng)
         case 'connected_RG':
             G = connected_random_geometric(n=graph_choice['n'], r=graph_choice['r'], rng=rng)
         case 'BA':
             initial_graph = get_graph(graph_choice['init']) if 'init' in graph_choice else nx.complete_graph(graph_choice['m'])
-            G = nx.barabasi_albert_graph(n=graph_choice['n'], m=graph_choice['m'], seed=int(rng.integers(0, 2**32 - 1)),
+            G = nx.barabasi_albert_graph(n=graph_choice['n'], m=int(round(graph_choice['m'])), seed=int(rng.integers(0, 2**32 - 1)),
                                          initial_graph=initial_graph, create_using=nx.Graph)
         case 'complete':
             G = nx.complete_graph(n=graph_choice['n'])
@@ -181,7 +183,6 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
             use_pseudo_gramian = True
     else:
         use_pseudo_gramian = False
-
     
     if (not skip_toggling_of_edges_that_disconnect_graph) and compute_spec_dist_of_other_sys_matrices:
         raise ValueError("Skipping toggling of edges that disconnect graph is not supported for computing spectral distance of all system matrices.")
@@ -192,10 +193,22 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
     A = get_system_matrix_from_graph(G, options['graph_matrix_choice'])
     B = get_input(G, options)
     
+    match options['t_horizon_setting_for_ETEC']:
+        case '2n':
+            t_for_ETEC = 2 * G.number_of_nodes()
+        case 'n':
+            t_for_ETEC = G.number_of_nodes()
+        case '2n-1':
+            t_for_ETEC = 2 * G.number_of_nodes() - 1
+        case 'n-1':
+            t_for_ETEC = G.number_of_nodes() - 1
+        case _:
+            t_for_ETEC = options['t_horizon_setting_for_ETEC']
+
     if edge_score_choice == 'ETEC':
-        ETEC = compute_energy_transfer_edge_centrality(get_system_matrix_from_graph(G, 'adjacency'), t)
+        ETEC = compute_energy_transfer_edge_centrality(get_system_matrix_from_graph(G, 'adjacency'), t_for_ETEC)
     elif edge_score_choice == 'ETEC_sys_mat':
-        ETEC = compute_energy_transfer_edge_centrality(A, t)
+        ETEC = compute_energy_transfer_edge_centrality(A, t_for_ETEC)
     
     match options['gramian_choice']:
         case 'finite_continuous':
@@ -208,21 +221,21 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
             raise ValueError(f"Gramian choice {options['gramian_choice']} unsupported.")
     
     W = gramian_func(A, B, t=t)
-    # calculate_W_stuff = True
-    # if np.isinf(W).any() and edge_score_choice == 'ETEC':
-    #     calculate_W_stuff = False
-    # elif np.isinf(W).any():
-    #     raise ValueError("Gramian is not well-defined.")
-    calculate_W_stuff = 'ETEC' not in edge_score_choice
+    # # calculate_W_stuff = True
+    # # if np.isinf(W).any() and edge_score_choice == 'ETEC':
+    # #     calculate_W_stuff = False
+    # # elif np.isinf(W).any():
+    # #     raise ValueError("Gramian is not well-defined.")
+    # calculate_W_stuff = 'ETEC' not in edge_score_choice
     
     A_eigvals, Q1 = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(A)
-    if calculate_W_stuff:
-        W_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W)
-        W_trace = float(np.trace(W))
-        W_pinv = np.linalg.pinv(W)
-        W_pinv_trace = float(np.trace(W_pinv))
-        W_logdet = logdet_psd(W, W_eigval=W_eigvals)[0]
-        W_rank = np.linalg.matrix_rank(W)
+    # if calculate_W_stuff:
+    W_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W)
+    W_trace = float(np.trace(W))
+    W_pinv = np.linalg.pinv(W)
+    W_pinv_trace = float(np.trace(W_pinv))
+    W_logdet = logdet_psd(W, W_eigval=W_eigvals)[0]
+    W_rank = np.linalg.matrix_rank(W)
 
     if compute_spec_dist_of_other_sys_matrices:
         other_system_matrix_choices = ['adjacency', 'neg_laplacian', 'normalized_laplacian', 'signless_laplacian', 'distance_normalized_laplacian']
@@ -238,8 +251,8 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
     other_results = {}
     other_results['A_lambda_min'] = float(np.min(A_eigvals))
     other_results['A_lambda_max'] = float(np.max(A_eigvals))
-    if calculate_W_stuff:
-        W_lambda_min = float(np.min(W_eigvals))
+    # if calculate_W_stuff:
+    W_lambda_min = float(np.min(W_eigvals))
 
     nodes = list(G.nodes())
     n = len(nodes)
@@ -296,20 +309,20 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
         else:
             W_mod = gramian_func(A_mod, B_mod, t=t)
         
-        if calculate_W_stuff:
-            W_mod_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W_mod)
-            Wc_spec_dist = spectral_distance(W, W_mod, M1_eigvals=W_eigvals, M2_eigvals=W_mod_eigvals)
-            W_mod_lambda_min = float(np.min(W_mod_eigvals))
-            W_mod_pinv = np.linalg.pinv(W_mod)
-            W_mod_pinv_trace = float(np.trace(W_mod_pinv))
-            W_mod_logdet = logdet_psd(W_mod)[0]
-            W_mod_rank = np.linalg.matrix_rank(W_mod)
+        # if calculate_W_stuff:
+        W_mod_eigvals = real_eigval_for_potentially_nonsymmetric_matrix(W_mod)
+        Wc_spec_dist = spectral_distance(W, W_mod, M1_eigvals=W_eigvals, M2_eigvals=W_mod_eigvals)
+        W_mod_lambda_min = float(np.min(W_mod_eigvals))
+        W_mod_pinv = np.linalg.pinv(W_mod)
+        W_mod_pinv_trace = float(np.trace(W_mod_pinv))
+        W_mod_logdet = logdet_psd(W_mod)[0]
+        W_mod_rank = np.linalg.matrix_rank(W_mod)
 
-            W_trace_diff = np.abs(W_trace - float(np.trace(W_mod)))
-            W_lambda_min_diff = np.abs(W_lambda_min - W_mod_lambda_min)
-            W_pinv_trace_diff = np.abs(W_pinv_trace - W_mod_pinv_trace)
-            W_logdet_diff = np.abs(W_logdet - W_mod_logdet)
-            W_rank_diff = np.abs(W_rank - W_mod_rank)
+        W_trace_diff = np.abs(W_trace - float(np.trace(W_mod)))
+        W_lambda_min_diff = np.abs(W_lambda_min - W_mod_lambda_min)
+        W_pinv_trace_diff = np.abs(W_pinv_trace - W_mod_pinv_trace)
+        W_logdet_diff = np.abs(W_logdet - W_mod_logdet)
+        W_rank_diff = np.abs(W_rank - W_mod_rank)
 
         if 'ETEC' in edge_score_choice:
             ETEC_score = ETEC[i, j]
@@ -349,13 +362,14 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
         results_per_edge[(u, v)]['sys_mat_spec_dist'] = A_spec_dist
         if edge_score_choice == 'ETEC':
             results_per_edge[(u, v)]['ETEC'] = ETEC_score
-        if calculate_W_stuff:
-            results_per_edge[(u, v)]['Wc_trace_diff'] = W_trace_diff
-            results_per_edge[(u, v)]['Wc_lambda_min_diff'] = W_lambda_min_diff
-            results_per_edge[(u, v)]['Wc_pinv_trace_diff'] = W_pinv_trace_diff
-            results_per_edge[(u, v)]['Wc_logdet_diff'] = W_logdet_diff
-            results_per_edge[(u, v)]['Wc_rank_diff'] = W_rank_diff
-            results_per_edge[(u, v)]['Wc_spec_dist'] = Wc_spec_dist
+        # if calculate_W_stuff:
+        results_per_edge[(u, v)]['Wc_trace_diff'] = W_trace_diff
+        results_per_edge[(u, v)]['Wc_lambda_min_diff'] = W_lambda_min_diff
+        results_per_edge[(u, v)]['Wc_pinv_trace_diff'] = W_pinv_trace_diff
+        results_per_edge[(u, v)]['Wc_logdet_diff'] = W_logdet_diff
+        results_per_edge[(u, v)]['Wc_rank_diff'] = W_rank_diff
+        results_per_edge[(u, v)]['Wc_spec_dist'] = Wc_spec_dist
+        results_per_edge[(u, v)]['density'] = nx.density(G_mod)
         
         if compute_spec_dist_of_other_sys_matrices:
             for i, matrix_choice in enumerate(other_system_matrix_choices):
@@ -468,5 +482,49 @@ def zero_forcing_set_greedy(G):
     return B
 
 
+def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency', plot_type='matrix'):
+    """
+    Given a list of graphs, compute a matrix of pairwise spectral distances.
+    Returns a symmetric distance matrix.
+    """
+    N = len(graphs)
+    dist_matrix = np.zeros((N, N))
 
+    # Precompute eigenvalues for all graphs
+    eigvals_list = []
+    graph_matrices = []
+    for G in graphs:
+        A = get_system_matrix_from_graph(G, matrix_choice=matrix_type)
+        graph_matrices.append(A)
+        eigvals, _ = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(A)
+        eigvals_list.append(eigvals)
+
+    density_diff_list = []
+    spec_dist_list = []
+    # Compute pairwise spectral distances
+    for i in range(N):
+        for j in range(i, N):
+            if i == j:
+                dist = 0.0
+            else:
+                dist = spectral_distance(graph_matrices[i], graph_matrices[j], M1_eigvals=eigvals_list[i], M2_eigvals=eigvals_list[j])
+            dist_matrix[i, j] = dist
+            dist_matrix[j, i] = dist  # Symmetric
+            density_diff_list.append(abs(nx.density(graphs[i]) - nx.density(graphs[j])))
+            spec_dist_list.append(dist)
     
+    plt.figure()
+    if plot_type == 'matrix':
+        plt.imshow(dist_matrix)
+        plt.colorbar(label=f'Spectral Distance ({matrix_type})')
+        plt.title(f'Spectral Distance Matrix ({matrix_type})')
+        plt.xlabel('Graph Index')
+        plt.ylabel('Graph Index')
+        plt.tight_layout()
+        plt.show()
+    elif plot_type == 'scatter':
+        plot_scatter(density_diff_list, spec_dist_list, title=f'Pairwise Spectral Distance vs Density Difference ({matrix_type})', xlabel='Density Difference', ylabel='Spectral Distance')
+
+    return dist_matrix, density_diff_list, spec_dist_list
+
+

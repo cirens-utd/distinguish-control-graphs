@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import scipy
 from tqdm import trange, tqdm
 from math import isfinite
-from modules.graphs import rank_edges_based_on_toggling_single_edge, get_graph_param_from_graph_choice
+from graphs import rank_edges_based_on_toggling_single_edge, get_graph_param_from_graph_choice
 from copy import deepcopy
 
 # Default plotting style (optional)
@@ -20,102 +20,108 @@ plt.rcParams.update({
 
 
 def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None,
-                 ranking_of_edges_by_single_edge_flip=None, sort_by=None):
+                 ranking_of_edges_by_single_edge_flip=None, sort_by=None, debug_dont_plot=False):
     sorted_data_asc = sorted(results_per_edge.items(), key=lambda item: item[1][sort_by])
     n = len(sorted_data_asc)
     
     plot = options['plots'][0]
-    if len(options['plots']) > 1:
+    if (not debug_dont_plot) and len(options['plots']) > 1:
         raise ValueError(f"Multiple plots specified, only one expected: {options['plots']}")
     
-    x = list(range(1, n + 1))
-    y1 = [item[1][plot['y1']] for item in sorted_data_asc]
-    y2 = [item[1][plot['y2']] for item in sorted_data_asc]
-    y3 = []
-    corr_y1_with_this = y2
-    if 'plot_these_graph_matrices_spec_dist' in options and len(options['plot_these_graph_matrices_spec_dist']) > 0:
-        for matrix_choice in options['plot_these_graph_matrices_spec_dist']:
-            y3.append([item[1][f'{matrix_choice}_spec_dist'] for item in sorted_data_asc])
-            if 'use_this_sys_matrix_spec_dist_for_corr' in options and len(options['use_this_sys_matrix_spec_dist_for_corr']) > 0:
-                if matrix_choice == options['use_this_sys_matrix_spec_dist_for_corr'] and matrix_choice != options['graph_matrix_choice']:
-                    # print(f"Using {matrix_choice} for correlation.")
-                    corr_y1_with_this = y3[-1]
-
-    # pearson_coef = np.corrcoef(y1, y2)[0, 1]
-    spearman_coef = scipy.stats.spearmanr(y1, corr_y1_with_this).statistic
-    kendalltau_coef = scipy.stats.kendalltau(y1, corr_y1_with_this).statistic
-    corr_coef_scores = [spearman_coef, kendalltau_coef]
-
     all_corr_coef_scores = {}
-    for axis in plot:
-        if axis == 'y1':
-            continue
-        quantity = [item[1][plot[axis]] for item in sorted_data_asc]
-        all_corr_coef_scores[(plot['y1'], plot[axis])] = {'spearmanr': scipy.stats.spearmanr(y1, quantity).statistic,
-                                                          'kendalltau': scipy.stats.kendalltau(y1, quantity).statistic}
     
-    # plt.figure(figsize=(7.2, 4.6))
-    # plot_scatter(x, y2)
+    for plot in options['plots']:
+        x = list(range(1, n + 1))
+        y1 = [item[1][plot['y1']] for item in sorted_data_asc]
+        y2 = [item[1][plot['y2']] for item in sorted_data_asc]
+        y3 = []
+        corr_y1_with_this = y2
+        if 'plot_these_graph_matrices_spec_dist' in options and len(options['plot_these_graph_matrices_spec_dist']) > 0:
+            for matrix_choice in options['plot_these_graph_matrices_spec_dist']:
+                y3.append([item[1][f'{matrix_choice}_spec_dist'] for item in sorted_data_asc])
+                if 'use_this_sys_matrix_spec_dist_for_corr' in options and len(options['use_this_sys_matrix_spec_dist_for_corr']) > 0:
+                    if matrix_choice == options['use_this_sys_matrix_spec_dist_for_corr'] and matrix_choice != options['graph_matrix_choice']:
+                        # print(f"Using {matrix_choice} for correlation.")
+                        corr_y1_with_this = y3[-1]
 
-    if ax1 is None:
-        created_figure = True
-        fig, ax1 = plt.subplots(figsize=(7.5, 4.8))
-    else:
-        created_figure = False
+        # pearson_coef = np.corrcoef(y1, y2)[0, 1]
+        spearman_coef = scipy.stats.spearmanr(y1, corr_y1_with_this).statistic
+        kendalltau_coef = scipy.stats.kendalltau(y1, corr_y1_with_this).statistic
+        corr_coef_scores = [spearman_coef, kendalltau_coef]
 
-    y1_label = plot['y1']
-    ax1.plot(x, y1, marker="o", label=y1_label)
-    if xlabel is not None:
-        ax1.set_xlabel(xlabel)
-    ax1.set_ylabel(y1_label, color="C0")
-    ax1.tick_params(axis="y", labelcolor="C0")
-    ax1.grid(alpha=0.3)
+        for axis in plot:
+            if axis == 'y1':
+                continue
+            quantity = [item[1][plot[axis]] for item in sorted_data_asc]
+            all_corr_coef_scores[(plot['y1'], plot[axis])] = {'spearmanr': scipy.stats.spearmanr(y1, quantity).statistic,
+                                                            'kendalltau': scipy.stats.kendalltau(y1, quantity).statistic}
+        
+        # plt.figure(figsize=(7.2, 4.6))
+        # plot_scatter(x, y2)
 
-    if len(y3) > 0:
-        ymin_ax, ymax_ax = ax1.get_ylim()
-        for i, matrix_choice in enumerate(options['plot_these_graph_matrices_spec_dist']):
-            # get current axis limits and rescale y3[i] to fit
-            # new_data = np.interp(y3[i], (ymin_ax, ymax_ax), (0, 1))
-            # Avoid division by zero
-            if np.max(y3[i]) != np.min(y3[i]):
-                y_scaled = ymin_ax + (y3[i] - np.min(y3[i])) * (ymax_ax - ymin_ax) / (np.max(y3[i]) - np.min(y3[i]))
-            else:
-                y_scaled = np.full_like(y3[i], (ymin_ax + ymax_ax) / 2)
-            ax1.plot(x, y_scaled, marker="o", linestyle="--", color=f"C{i+3}", label=f'{matrix_choice}_spec_dist')
-        ax1.legend(loc="upper left")
-
-    y2_label = plot['y2']
-    ax2 = ax1.twinx()
-    ax2.plot(x, y2, marker="s", linestyle="--", color="C1", label=y2_label)
-    ax2.set_ylabel(y2_label, color="C1")
-    ax2.tick_params(axis="y", labelcolor="C1")
-    
-    if 'plot_single_edge_flip_scores' in options and options['plot_single_edge_flip_scores']:
-        y4 = [ranking_of_edges_by_single_edge_flip[item[0]][options['edge_score_choice']] for item in sorted_data_asc]
-        ymin_ax2, ymax_ax2 = ax2.get_ylim()
-        if np.max(y4) != np.min(y4):
-            y4_scaled = ymin_ax2 + (y4 - np.min(y4)) * (ymax_ax2 - ymin_ax2) / (np.max(y4) - np.min(y4))
+        if ax1 is None:
+            created_figure = True
+            fig, ax1 = plt.subplots(figsize=(7.5, 4.8))
         else:
-            y4_scaled = np.full_like(y4, (ymin_ax2 + ymax_ax2) / 2)
-        ax2.plot(x, y4_scaled, marker="o", linestyle="--", color="C2", label=f'{options['edge_score_choice']}_single_edge_flip')
-        ax2.legend(loc="upper right")
+            created_figure = False
+
+        y1_label = plot['y1']
+        ax1.plot(x, y1, marker="o", label=y1_label)
+        if xlabel is not None:
+            ax1.set_xlabel(xlabel)
+        ax1.set_ylabel(y1_label, color="C0")
+        ax1.tick_params(axis="y", labelcolor="C0")
+        ax1.grid(alpha=0.3)
+
+        if len(y3) > 0:
+            ymin_ax, ymax_ax = ax1.get_ylim()
+            for i, matrix_choice in enumerate(options['plot_these_graph_matrices_spec_dist']):
+                # get current axis limits and rescale y3[i] to fit
+                # new_data = np.interp(y3[i], (ymin_ax, ymax_ax), (0, 1))
+                # Avoid division by zero
+                if np.max(y3[i]) != np.min(y3[i]):
+                    y_scaled = ymin_ax + (y3[i] - np.min(y3[i])) * (ymax_ax - ymin_ax) / (np.max(y3[i]) - np.min(y3[i]))
+                else:
+                    y_scaled = np.full_like(y3[i], (ymin_ax + ymax_ax) / 2)
+                ax1.plot(x, y_scaled, marker="o", linestyle="--", color=f"C{i+3}", label=f'{matrix_choice}_spec_dist')
+            ax1.legend(loc="upper left")
+
+        y2_label = plot['y2']
+        ax2 = ax1.twinx()
+        ax2.plot(x, y2, marker="s", linestyle="--", color="C1", label=y2_label)
+        ax2.set_ylabel(y2_label, color="C1")
+        ax2.tick_params(axis="y", labelcolor="C1")
+        
+        if 'third_plot' in options and options['third_plot'] is not None:
+            if options['third_plot'] == 'single_edge_flip_scores':
+                y4 = [ranking_of_edges_by_single_edge_flip[item[0]][options['edge_score_choice']] for item in sorted_data_asc]
+            else:
+                y4 = [item[1][options['third_plot']] for item in sorted_data_asc]
+            ymin_ax2, ymax_ax2 = ax2.get_ylim()
+            if np.max(y4) != np.min(y4):
+                y4_scaled = ymin_ax2 + (y4 - np.min(y4)) * (ymax_ax2 - ymin_ax2) / (np.max(y4) - np.min(y4))
+            else:
+                y4_scaled = np.full_like(y4, (ymin_ax2 + ymax_ax2) / 2)
+            ax2.plot(x, y4_scaled, marker="o", linestyle="--", color="C2", label=f'{options['edge_score_choice']}_single_edge_flip')
+            ax2.legend(loc="upper right")
+        
+        title = f'Graph: {options['graph_choice']}\n' + \
+                f'System matrix: {options['graph_matrix_choice']}\n' + \
+                f'Input: {options['input']}\n' + \
+                f'Spearman coefficient: {spearman_coef:.2g}\n' + \
+                f'Kendall\'s Tau coefficient: {kendalltau_coef:.2g}\n' + \
+                f'Gramian: {options['gramian_choice']}'
+                # f'($\\lambda_1$ = {other_results['A_lambda_min']:.2g}' + \
+                # f', $\\lambda_n$ = {other_results['A_lambda_max']:.2g})\n' + \
+        if options['edge_score_choice'] == 'random':
+            title += f'\nRandom order of edges'
+
+        plt.title(title)
+
+        if created_figure:
+            plt.tight_layout()
+            plt.show()
     
-    title = f'Graph: {options['graph_choice']}\n' + \
-            f'System matrix: {options['graph_matrix_choice']}\n' + \
-            f'Input: {options['input']}\n' + \
-            f'Spearman coefficient: {spearman_coef:.2g}\n' + \
-            f'Kendall\'s Tau coefficient: {kendalltau_coef:.2g}\n' + \
-            f'Gramian: {options['gramian_choice']}'
-            # f'($\\lambda_1$ = {other_results['A_lambda_min']:.2g}' + \
-            # f', $\\lambda_n$ = {other_results['A_lambda_max']:.2g})\n' + \
-    if options['edge_score_choice'] == 'random':
-        title += f'\nRandom order of edges'
-
-    plt.title(title)
-
-    if created_figure:
-        plt.tight_layout()
-        plt.show()
     return corr_coef_scores, all_corr_coef_scores
 
 
@@ -126,6 +132,22 @@ def compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_cor
     densities = options['graph_metrics']['density']
     density_avg = np.mean(densities)
     density_std = np.std(densities)
+
+    if results_file is not None:
+        f = open(results_file, 'a')
+        # format: n_graphs, sys_matrix, graph_type, n_nodes, graph_param, density_avg, density_std, input, edge_score, quantity_pair_in_quotations, metric_1, corr_coef_avg_1, corr_coef_std_1, metric_2, corr_coef_avg_2, corr_coef_std_2
+        f.write(f"{len(options['graphs'])}, ")
+        f.write(f"{options['graph_matrix_choice']}, ")
+        graph_type = options['graph_choices'][0]['type']
+        f.write(f"{graph_type}, ")
+        f.write(f"{options['graph_choices'][0]['n']}, ")
+        param = get_graph_param_from_graph_choice(options['graph_choices'][0])
+        f.write(f"{param}, ")
+        f.write(f"{density_avg:.3g}, ")
+        f.write(f"{density_std:.3g}, ")
+        f.write(f"{options['input']}, ")
+        f.write(f"{options['edge_score_choice']}, ")
+    
     for quantity_pair in corr_coef_scores_avg.keys():
         results_for_this_pair = [all_corr_coef_score_results_for_all_graphs[j][quantity_pair] for j in range(len(all_corr_coef_score_results_for_all_graphs))]
         corr_coef_scores_avg[quantity_pair] = {}
@@ -134,24 +156,16 @@ def compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_cor
             values = [result[metric] for result in results_for_this_pair]
             corr_coef_scores_avg[quantity_pair][metric] = np.mean(values)
             corr_coef_scores_std[quantity_pair][metric] = np.std(values)
+        
         if results_file is not None:
-            with open(results_file, 'a') as f:
-                # format: n_graphs, sys_matrix, graph_type, n_nodes, graph_param, density_avg, density_std, input, edge_score, quantity_pair_in_quotations, metric_1, corr_coef_avg_1, corr_coef_std_1, metric_2, corr_coef_avg_2, corr_coef_std_2
-                f.write(f"{len(options['graphs'])}, ")
-                f.write(f"{options['graph_matrix_choice']}, ")
-                graph_type = options['graph_choices'][0]['type']
-                f.write(f"{graph_type}, ")
-                f.write(f"{options['graph_choices'][0]['n']}, ")
-                param = get_graph_param_from_graph_choice(options['graph_choices'][0])
-                f.write(f"{param}, ")
-                f.write(f"{density_avg:.3g}, ")
-                f.write(f"{density_std:.3g}, ")
-                f.write(f"{options['input']}, ")
-                f.write(f"{options['edge_score_choice']}, ")
-                f.write(f"\" {quantity_pair}\", ")
-                for metric in corr_coef_scores_avg[quantity_pair].keys():
-                    f.write(f"{metric}, {corr_coef_scores_avg[quantity_pair][metric]:.3g}, {corr_coef_scores_std[quantity_pair][metric]:.3g}, ")
-                f.write("\n")
+            f.write(f"\" {quantity_pair}\", ")
+            for metric in corr_coef_scores_avg[quantity_pair].keys():
+                f.write(f"{metric}, {corr_coef_scores_avg[quantity_pair][metric]:.3g}, {corr_coef_scores_std[quantity_pair][metric]:.3g}, ")
+    
+    if results_file is not None:
+        f.write("\n")
+        f.close()
+    
     return corr_coef_scores_avg, corr_coef_scores_std
 
 
@@ -185,7 +199,7 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
             ranking_of_edges_by_single_edge_flip = None
             results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options)
         corr_coef_score_this_iter, all_corr_coef_scores_this_iter = plot_results(results_per_edge_toggled, other_results, temp_options,
-                ax1=ax1, ranking_of_edges_by_single_edge_flip=ranking_of_edges_by_single_edge_flip, sort_by=sort_by)
+                ax1=ax1, ranking_of_edges_by_single_edge_flip=ranking_of_edges_by_single_edge_flip, sort_by=sort_by, debug_dont_plot=debug_dont_plot)
         all_corr_coef_score_results_for_all_graphs.append(all_corr_coef_scores_this_iter)
         sum_of_corr_coef_scores_this_iter = np.sum(np.array(corr_coef_score_this_iter))
         if sum_of_corr_coef_scores_this_iter < 0.5*len(corr_coef_score_this_iter):
@@ -217,8 +231,9 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
         edge_score_choices, gramian_choices=['finite_continuous'], t_horizon=1, plot_all_ignoring_low_corr=False,
         multiple_toggles=False, debug_dont_plot=False, plot_these_graph_matrices_spec_dist=[],
         skip_toggling_of_edges_that_disconnect_graph=False, use_this_sys_matrix_spec_dist_for_corr=[],
-        plot_this_quantity_instead_of_rand_edge_score=None, plot_single_edge_flip_scores=False, rand_edge_order={},
-        results_file=None, sort_by_this_quantity_instead_of_rand_edge_score=None):
+        sort_by=None, plot_this=None, third_plot=None,
+        plot_single_edge_flip_scores=False, rand_edge_order={},
+        results_file=None, other_pairs_of_quantities_to_plot=[], t_horizon_setting_for_ETEC='2n'):
     
     options = {'graph_choices': graph_choices,
                'graphs': graphs,
@@ -228,7 +243,9 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                'use_this_sys_matrix_spec_dist_for_corr': use_this_sys_matrix_spec_dist_for_corr,
                'plot_single_edge_flip_scores': plot_single_edge_flip_scores,
                'results_file': results_file,
-               'rand_edge_order': rand_edge_order}
+               'rand_edge_order': rand_edge_order,
+               't_horizon_setting_for_ETEC': t_horizon_setting_for_ETEC,
+               'third_plot': third_plot}
     
     if len(use_this_sys_matrix_spec_dist_for_corr) > 0:
         options['use_this_sys_matrix_spec_dist_for_corr'] = use_this_sys_matrix_spec_dist_for_corr[0]
@@ -249,19 +266,21 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
 
                     options['edge_score_choice'] = edge_score_choice
 
-                    if edge_score_choice == 'random' and plot_this_quantity_instead_of_rand_edge_score is not None:
-                        quantity_to_plot_if_rand_edge_order = plot_this_quantity_instead_of_rand_edge_score
-                    else:
-                        quantity_to_plot_if_rand_edge_order = edge_score_choice
-                    options['plots'] = [{'y1': 'sys_mat_spec_dist', 'y2': quantity_to_plot_if_rand_edge_order}]
+                    # if edge_score_choice == 'random' and plot_this_quantity_instead_of_rand_edge_score is not None:
+                    #     quantity_to_plot_if_rand_edge_order = plot_this_quantity_instead_of_rand_edge_score
+                    # else:
+                    #     quantity_to_plot_if_rand_edge_order = edge_score_choice
+                    # options['plots'] = [{'y1': 'sys_mat_spec_dist', 'y2': quantity_to_plot_if_rand_edge_order}]
+                    if plot_this is None:
+                        plot_this = edge_score_choice
+                    options['plots'] = [{'y1': 'sys_mat_spec_dist', 'y2': plot_this}]
+                    options['plots'].extend(other_pairs_of_quantities_to_plot)
                 
                     options['graph_matrix_choice'] = matrix_choice
                     options['input'] = input_choice
 
-                    if edge_score_choice == 'random' and sort_by_this_quantity_instead_of_rand_edge_score is not None:
-                        quantity_to_sort_by_if_random_edge_order = sort_by_this_quantity_instead_of_rand_edge_score
-                    else:
-                        quantity_to_sort_by_if_random_edge_order = edge_score_choice
+                    if sort_by is None:
+                        sort_by = edge_score_choice
                     
                     if isinstance(graphs[0], list):
                         n_expt = len(graphs)
@@ -271,11 +290,10 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                             options['graphs'] = [graphs[expt_no][k] for k in range(n_graphs)]
                             options['graph_choices'] = [graph_choices[expt_no] for _ in range(n_graphs)]
                             results.append(graph_edge_toggling_expt(options, multiple_toggles=multiple_toggles, debug_dont_plot=True,
-                                                                    sort_by=quantity_to_sort_by_if_random_edge_order,
-                                                                    results_file=results_file))
+                                                                    sort_by=sort_by, results_file=results_file))
                     else:
                         graph_edge_toggling_expt(options, plot_all_ignoring_low_corr=plot_all_ignoring_low_corr,
                                                 multiple_toggles=multiple_toggles, debug_dont_plot=debug_dont_plot,
-                                                sort_by=quantity_to_sort_by_if_random_edge_order)
+                                                sort_by=sort_by)
 
 

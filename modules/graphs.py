@@ -513,7 +513,7 @@ def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency
             density_diff_list.append(abs(nx.density(graphs[i]) - nx.density(graphs[j])))
             spec_dist_list.append(dist)
     
-    plt.figure()
+    plt.figure(figsize = (5, 4))
     if plot_type == 'matrix':
         plt.imshow(dist_matrix)
         plt.colorbar(label=f'Spectral Distance ({matrix_type})')

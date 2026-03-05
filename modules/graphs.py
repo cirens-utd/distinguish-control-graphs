@@ -528,3 +528,27 @@ def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency
     return dist_matrix, density_diff_list, spec_dist_list
 
 
+def plot_average_spectral_distance_for_same_param_val(graphs, matrix_type, param_name, param_values, n_graphs_per_param_val):
+    param_wise_graph_lists = []
+    graphs_idx = 0
+    for param_val in param_values:
+        graph_list = []
+        while len(graph_list) < n_graphs_per_param_val:
+            graph_list.append(graphs[graphs_idx])
+            graphs_idx += 1
+        param_wise_graph_lists.append(graph_list)
+    
+    spec_dist_values = []
+    for graph_list in param_wise_graph_lists:
+        dist_matrix, _, _ = compute_matrix_of_pairwise_spectral_distances(graph_list, matrix_type=matrix_type, plot_type='none')
+        spec_dist_values.append(np.mean(dist_matrix))
+    
+    plt.figure(figsize=(6, 3))
+    plt.plot(param_values, spec_dist_values, 'o-')
+    plt.xlabel(param_name)
+    plt.ylabel('Average Spectral Distance')
+    plt.title(f'Average Spectral Distance vs {param_name}')
+    plt.grid(True)
+    plt.show()
+    
+    return spec_dist_values

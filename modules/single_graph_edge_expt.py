@@ -111,14 +111,16 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
         if 'third_plot' in options and options['third_plot'] is not None:
             if options['third_plot'] == 'single_edge_flip_scores':
                 y4 = [ranking_of_edges_by_single_edge_flip[item[0]][options['edge_score_choice']] for item in sorted_data_asc]
+                label = f'{options['edge_score_choice']}_single_edge_flip'
             else:
                 y4 = [item[1][options['third_plot']] for item in sorted_data_asc]
+                label = options['third_plot']
             ymin_ax2, ymax_ax2 = ax2.get_ylim()
             if np.max(y4) != np.min(y4):
                 y4_scaled = ymin_ax2 + (y4 - np.min(y4)) * (ymax_ax2 - ymin_ax2) / (np.max(y4) - np.min(y4))
             else:
                 y4_scaled = np.full_like(y4, (ymin_ax2 + ymax_ax2) / 2)
-            ax2.plot(x, y4_scaled, marker="o", linestyle="--", color="C2", label=f'{options['edge_score_choice']}_single_edge_flip')
+            ax2.plot(x, y4_scaled, marker="o", linestyle="--", color="C2", label=label)
             ax2.legend(loc="upper right")
         
         coefficients_in_title = f'Spearman rank coefficient: {spearman_coef:.2g}\n' + \

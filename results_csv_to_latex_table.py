@@ -21,7 +21,9 @@ with open(input_file, newline="") as f, open(output_file, "w") as out:
 
         mean = row[5].strip()
         std = row[6].strip()
-
+        
+        mean = f"{float(mean):.3f}"
+        std = f"{float(std):.3f}"
         if float(std) < 1e-10:
             std = "0"
 
@@ -31,30 +33,33 @@ with open(input_file, newline="") as f, open(output_file, "w") as out:
         spearman1, spearman1_std = row[12].strip(), row[13].strip()
         kendall1, kendall1_std = row[15].strip(), row[16].strip()
 
-        if float(spearman1_std) < 1e-10:
-            spearman1_std = "0"
-        if float(kendall1_std) < 1e-10:
-            kendall1_std = "0"
-
         # third correlation pair
         spearman3, spearman3_std = row[28].strip(), row[29].strip()
         kendall3, kendall3_std = row[31].strip(), row[32].strip()
 
-        if float(spearman3_std) < 1e-10:
-            spearman3_std = "0"
-        if float(kendall3_std) < 1e-10:
-            kendall3_std = "0"
+        scores_avg = [spearman1, kendall1, spearman3, kendall3]
+        scores_std = [spearman1_std, kendall1_std, spearman3_std, kendall3_std]
+        scores_str = ''
+
+        for avg, std in zip(scores_avg, scores_std):
+            if float(std) < 1e-10:
+                std = "0"
+            avg = f"{float(avg):.3f}"
+            std = f"{float(std):.3f}"
+            str = f"{avg} $\\pm$ {std}"
+            if float(avg) > 0.95:
+                str = f"\\textcolor{{red}}{{{str}}}"
+            elif float(avg) > 0.85:
+                str = f"\\textcolor{{blue}}{{{str}}}"
+            scores_str += " & " + str
 
         short, param_name = name_map[graph_type]
 
         line = (
-            f"{short} ({param_name} = {param}) & "
-            f"{mean} $\\pm$ {std} & "
-            # f"{transform} & "
-            f"{spearman1} $\\pm$ {spearman1_std} & "
-            f"{kendall1} $\\pm$ {kendall1_std} & "
-            f"{spearman3} $\\pm$ {spearman3_std} & "
-            f"{kendall3} $\\pm$ {kendall3_std} \\\\\n"
+            f"{short} ({param_name} = {param}) "
+            f"& {mean} $\\pm$ {std} "
+            # f"& {transform} "
+            f"{scores_str} \\\\\n"
         )
 
         out.write(line)

@@ -410,14 +410,15 @@ def logdet_psd(W, W_eigval=None, tol=1e-12):
     return float(np.sum(np.log(kept))), kept.size, (kept.size == ev.size)
 
 
-def plot_scatter(x, y, *, title=None, xlabel=None, ylabel=None):
+def plot_scatter(x, y, *, title=None, xlabel=None, ylabel=None, figfile=None):
     plt.scatter(x, y, s=24, alpha=0.7)
     plt.xlabel(xlabel or "x")
     plt.ylabel(ylabel or "y")
     plt.title(title or "")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.show()
+    if figfile is not None:
+        plt.savefig(figfile, dpi=300, bbox_inches='tight')
 
 
 def zero_forcing_set_greedy(G):
@@ -482,7 +483,7 @@ def zero_forcing_set_greedy(G):
     return B
 
 
-def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency', plot_type='matrix'):
+def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency', plot_type='matrix', figfile=None):
     """
     Given a list of graphs, compute a matrix of pairwise spectral distances.
     Returns a symmetric distance matrix.
@@ -513,22 +514,32 @@ def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency
             density_diff_list.append(abs(nx.density(graphs[i]) - nx.density(graphs[j])))
             spec_dist_list.append(dist)
     
-    plt.figure(figsize = (5, 4))
-    if plot_type == 'matrix':
-        plt.imshow(dist_matrix)
-        plt.colorbar(label=f'Spectral Distance ({matrix_type})')
-        plt.title(f'Spectral Distance Matrix ({matrix_type})')
-        plt.xlabel('Graph Index')
-        plt.ylabel('Graph Index')
-        plt.tight_layout()
-        plt.show()
-    elif plot_type == 'scatter':
-        plot_scatter(density_diff_list, spec_dist_list, title=f'Pairwise Spectral Distance vs Density Difference ({matrix_type})', xlabel='Density Difference', ylabel='Spectral Distance')
+    if plot_type != 'none':
+        plt.figure(figsize = (5, 4))
+        if plot_type == 'matrix':
+            plt.imshow(dist_matrix)
+            plt.colorbar(label=f'Spectral Distance ({matrix_type})')
+            plt.title(f'Spectral Distance Matrix ({matrix_type})')
+            plt.xlabel('Graph Index')
+            plt.ylabel('Graph Index')
+            plt.tight_layout()
+            if figfile is not None:
+                plt.savefig(figfile, dpi=300, bbox_inches='tight')
+            plt.show()
+        elif plot_type == 'scatter':
+            plot_scatter(density_diff_list, spec_dist_list,
+                        #  title=f'Pairwise Spectral Distance vs Density Difference ({matrix_type})', 
+                         xlabel='Absolute Density Difference', 
+                         ylabel=f'{matrix_type.capitalize()} Spectral Distance',
+                         figfile=figfile)
+            plt.show()
 
     return dist_matrix, density_diff_list, spec_dist_list
 
 
-def plot_average_spectral_distance_for_same_param_val(graphs, matrix_type, param_name, param_values, n_graphs_per_param_val):
+def plot_average_spectral_distance_for_same_param_val(graphs, matrix_type, param_name, param_values, n_graphs_per_param_val,
+        plot_violin_and_medians=False, figfile=None, xlabel_step=4):
+    
     param_wise_graph_lists = []
     graphs_idx = 0
     for param_val in param_values:
@@ -538,17 +549,82 @@ def plot_average_spectral_distance_for_same_param_val(graphs, matrix_type, param
             graphs_idx += 1
         param_wise_graph_lists.append(graph_list)
     
-    spec_dist_values = []
+    spec_dist_means = []
+    spec_dist_distributions = []
     for graph_list in param_wise_graph_lists:
         dist_matrix, _, _ = compute_matrix_of_pairwise_spectral_distances(graph_list, matrix_type=matrix_type, plot_type='none')
-        spec_dist_values.append(np.mean(dist_matrix))
+        spec_dist_means.append(np.mean(dist_matrix))
+        spec_dist_distributions.append(dist_matrix.flatten())
     
-    plt.figure(figsize=(6, 3))
-    plt.plot(param_values, spec_dist_values, 'o-')
+    # plt.figure(figsize=(6, 3))
+    # plt.plot(param_values, spec_dist_means, 'o-')
+    # plt.xlabel(param_name)
+    # plt.ylabel(f'Average {matrix_type.capitalize()} Spectral Distance')
+    # # plt.title(f'Average Spectral Distance vs {param_name}')
+    # plt.grid(True)
+    # plt.show()
+    
+    positions = np.arange(len(param_values))
+
+
+    if plot_violin_and_medians:
+        plt.figure(figsize=(6,5))
+
+        vp = plt.violinplot(
+            spec_dist_distributions,
+            positions=positions,
+            widths=0.8,
+            showmeans=False,
+            showmedians=False,
+            showextrema=True
+        )
+
+        # Make violins clearly visible
+        for body in vp['bodies']:
+            body.set_facecolor("skyblue")
+            body.set_edgecolor("black")
+            body.set_alpha(0.7)
+            body.set_linewidth(1)
+
+        # summary statistics
+        medians = [np.median(d) for d in spec_dist_distributions]
+
+        # median markers
+        plt.scatter(positions, medians, color="black", s=25, label="Median")
+
+        # mean markers
+        plt.scatter(
+            positions,
+            spec_dist_means,
+            color="white",
+            edgecolor="black",
+            s=70,
+            zorder=3,
+            label="Mean"
+        )
+        plt.ylabel(f'{matrix_type.capitalize()} Spectral Distance')
+
+        # mean trend line
+        plt.plot(positions, spec_dist_means, color="black", alpha=0.6)
+        
+        plt.legend()
+    else:
+        plt.figure(figsize=(5,3.5))
+
+        # just plot the means
+        plt.plot(positions, spec_dist_means, 'o-')
+        plt.ylabel(f'{matrix_type.capitalize()} Average Spectral Distance')
+    
+    plt.xticks(positions[::xlabel_step], np.round(param_values[::xlabel_step], 3))
+    
     plt.xlabel(param_name)
-    plt.ylabel('Average Spectral Distance')
-    plt.title(f'Average Spectral Distance vs {param_name}')
-    plt.grid(True)
+
+    plt.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+
+    if figfile is not None:
+        plt.savefig(figfile, dpi=300, bbox_inches='tight')
     plt.show()
-    
-    return spec_dist_values
+
+    return spec_dist_means, spec_dist_distributions

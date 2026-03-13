@@ -628,3 +628,71 @@ def plot_average_spectral_distance_for_same_param_val(graphs, matrix_type, param
     plt.show()
 
     return spec_dist_means, spec_dist_distributions
+
+
+def compute_zfs_transf_Gramian_spectra_of_given_two_graphs(adj1, adj2, t=1, matrix='adjacency'):
+    G1 = nx.from_numpy_array(adj1)
+    G2 = nx.from_numpy_array(adj2)
+
+    L1 = nx.laplacian_matrix(G1).toarray()
+    L2 = nx.laplacian_matrix(G2).toarray()
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7, 4))
+    fig.suptitle("Pair of Cospectral Graphs", fontsize=14)
+    nx.draw(G1, ax=ax1, with_labels=True, node_color='skyblue', node_size=800)
+    nx.draw(G2, ax=ax2, with_labels=True, node_color='lightgreen', node_size=800)
+    plt.tight_layout()
+    plt.show()
+
+    # 1. Verify they are NOT isomorphic
+    isomorphic = nx.is_isomorphic(G1, G2)
+
+    # 2. Compare their spectrum (eigenvalues)
+    if matrix == 'adjacency':
+        M1 = adj1
+        M2 = adj2
+    elif matrix == 'laplacian':
+        M1 = -L1
+        M2 = -L2
+    else:
+        raise ValueError("matrix must be 'adjacency' or 'laplacian'")
+    
+    # print(f"M1: {M1}")
+    # print(f"M2: {M2}")
+    
+    M1_eigvals, Q1 = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(M1)
+    M2_eigvals, Q2 = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(M2)
+
+    print(f"Spec1: {np.round(M1_eigvals, 4)}")
+    print(f"Spec2: {np.round(M2_eigvals, 4)}")
+
+    print(f"Are they isomorphic? {isomorphic}")
+    print(f"Are they cospectral? {np.allclose(M1_eigvals, M2_eigvals)}\n")
+
+    T = Q1 @ Q2.T
+
+    B1 = get_input(G1, {'input': 'zfs_transf'})
+    B2 = get_input(G2, {'input': 'zfs_transf'}, B_old=B1, T=T, modified_matrix=True)
+
+    # B1 = get_input(G1, {'input': 'all_ones'})
+    # B2 = get_input(G2, {'input': 'all_ones'})
+
+    # print(f"B1: {B1}")
+    # print(f"B2: {B2}")
+    # print(f"B1 transformed: {T.T @ B1}")
+
+    W1 = finite_time_gramian(M1, B1, t=t)
+    W2 = finite_time_gramian(M2, B2, t=t)
+
+    W1_eigvals, _ = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(W1)
+    W2_eigvals, _ = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(W2)
+
+    # print("W1 eigenvalues:", W1_eigvals)
+    # print("W2 eigenvalues:", W2_eigvals)
+
+    print(f"W1 eigenvalues: {np.round(W1_eigvals, 4)}")
+    print(f"W2 eigenvalues: {np.round(W2_eigvals, 4)}")
+
+    print(f"Are the Gramians cospectral? {np.allclose(W1_eigvals, W2_eigvals)}")
+
+    return W1_eigvals, W2_eigvals, M1_eigvals, M2_eigvals, G1, G2

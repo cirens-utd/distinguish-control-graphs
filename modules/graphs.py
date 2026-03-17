@@ -410,15 +410,15 @@ def logdet_psd(W, W_eigval=None, tol=1e-12):
     return float(np.sum(np.log(kept))), kept.size, (kept.size == ev.size)
 
 
-def plot_scatter(x, y, *, title=None, xlabel=None, ylabel=None, figfile=None):
-    plt.scatter(x, y, s=24, alpha=0.7)
-    plt.xlabel(xlabel or "x")
-    plt.ylabel(ylabel or "y")
-    plt.title(title or "")
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    if figfile is not None:
-        plt.savefig(figfile, dpi=300, bbox_inches='tight')
+def plot_scatter(x, y, *, title=None, xlabel=None, ylabel=None, figfile=None, color='blue'):
+        plt.scatter(x, y, s=24, alpha=0.7, color=color)
+        plt.xlabel(xlabel or "x")
+        plt.ylabel(ylabel or "y")
+        plt.title(title or "")
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        if figfile is not None:
+            plt.savefig(figfile, dpi=300, bbox_inches='tight')
 
 
 def zero_forcing_set_greedy(G):
@@ -483,7 +483,8 @@ def zero_forcing_set_greedy(G):
     return B
 
 
-def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency', plot_type='matrix', figfile=None):
+def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency', plot_type='matrix', figfile=None, axis=None,
+        right_axis=False, ylabel='default'):
     """
     Given a list of graphs, compute a matrix of pairwise spectral distances.
     Returns a symmetric distance matrix.
@@ -514,30 +515,141 @@ def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency
             density_diff_list.append(abs(nx.density(graphs[i]) - nx.density(graphs[j])))
             spec_dist_list.append(dist)
     
+    color = 'green'
+    if right_axis:
+        color = 'blue'
+    
     if plot_type != 'none':
-        plt.figure(figsize = (5, 4))
         if plot_type == 'matrix':
-            plt.imshow(dist_matrix)
-            plt.colorbar(label=f'Spectral Distance ({matrix_type})')
-            plt.title(f'Spectral Distance Matrix ({matrix_type})')
-            plt.xlabel('Graph Index')
-            plt.ylabel('Graph Index')
-            plt.tight_layout()
-            if figfile is not None:
-                plt.savefig(figfile, dpi=300, bbox_inches='tight')
-            plt.show()
+            have_("haven't set colors for right_axis for this plot yet")
+            axis.imshow(dist_matrix)
+            axis.set_colorbar(label=f'Spectral Distance ({matrix_type})')
+            axis.set_title(f'Spectral Distance Matrix ({matrix_type})')
+            axis.set_xlabel('Graph Index')
+            if ylabel is not None:
+                if ylabel == 'default':
+                    axis.set_ylabel('Graph Index')
+                else:
+                    axis.set_ylabel(ylabel)
+            axis.tight_layout()
         elif plot_type == 'scatter':
-            plot_scatter(density_diff_list, spec_dist_list,
-                        #  title=f'Pairwise Spectral Distance vs Density Difference ({matrix_type})', 
-                         xlabel='Absolute Density Difference', 
-                         ylabel=f'{matrix_type.capitalize()} Spectral Distance',
-                         figfile=figfile)
-            plt.show()
+            axis.scatter(density_diff_list, spec_dist_list, s=24, alpha=0.7, color=color)
+            axis.set_xlabel('Absolute Difference of Density')
+            if ylabel is not None:
+                if ylabel == 'default':
+                    axis.set_ylabel(f'{matrix_type.capitalize()} Spectral Dist.', color=color)
+                else:
+                    axis.set_ylabel(ylabel, color=color)
+            # axis.set_title(f'Pairwise Spectral Distance vs Density Difference ({matrix_type})')
+            axis.grid(True, alpha=0.3)
+            plt.tight_layout()
+        if figfile is not None:
+            plt.savefig(figfile, dpi=300, bbox_inches='tight')
+    
+    if axis is not None:
+        axis.tick_params(axis='y', colors=color)
 
     return dist_matrix, density_diff_list, spec_dist_list
 
 
 def plot_average_spectral_distance_for_same_param_val(graphs, matrix_type, param_name, param_values, n_graphs_per_param_val,
+        plot_violin_and_medians=False, figfile=None, xlabel_step=8, axis=None, right_axis=False, first_tick=0.2):
+    
+    param_wise_graph_lists = []
+    graphs_idx = 0
+    for param_val in param_values:
+        graph_list = []
+        while len(graph_list) < n_graphs_per_param_val:
+            graph_list.append(graphs[graphs_idx])
+            graphs_idx += 1
+        param_wise_graph_lists.append(graph_list)
+    
+    spec_dist_means = []
+    spec_dist_distributions = []
+    for graph_list in tqdm(param_wise_graph_lists, desc="Computing spectral distances"):
+        dist_matrix, _, _ = compute_matrix_of_pairwise_spectral_distances(graph_list, matrix_type=matrix_type, plot_type='none')
+        spec_dist_means.append(np.mean(dist_matrix))
+        spec_dist_distributions.append(dist_matrix.flatten())
+    
+    # plt.figure(figsize=(6, 3))
+    # plt.plot(param_values, spec_dist_means, 'o-')
+    # plt.xlabel(param_name)
+    # plt.ylabel(f'Average {matrix_type.capitalize()} Spectral Distance')
+    # # plt.title(f'Average Spectral Distance vs {param_name}')
+    # plt.grid(True)
+    # plt.show()
+    
+    positions = np.arange(len(param_values))
+    
+    color = 'green'
+    if right_axis:
+        color = 'blue'
+
+    if plot_violin_and_medians:
+        have_("haven't set different colors for right_axis in this if block yet")
+        vp = axis.violinplot(
+            spec_dist_distributions,
+            positions=positions,
+            widths=0.8,
+            showmeans=False,
+            showmedians=False,
+            showextrema=True
+        )
+
+        # Make violins clearly visible
+        for body in vp['bodies']:
+            body.set_facecolor("skyblue")
+            body.set_edgecolor("black")
+            body.set_alpha(0.7)
+            body.set_linewidth(1)
+
+        # summary statistics
+        medians = [np.median(d) for d in spec_dist_distributions]
+
+        # median markers
+        axis.scatter(positions, medians, color="black", s=25, label="Median")
+
+        # mean markers
+        axis.scatter(
+            positions,
+            spec_dist_means,
+            color="white",
+            edgecolor="black",
+            s=70,
+            zorder=3,
+            label="Mean"
+        )
+        axis.set_ylabel(f'{matrix_type.capitalize()} Spectral Distance')
+
+        # mean trend line
+        axis.plot(positions, spec_dist_means, color="black", alpha=0.6)
+        
+        plt.legend()
+    else:
+        # just plot the means
+        axis.plot(positions, spec_dist_means, 'o-', color=color)
+        axis.set_ylabel(f'{matrix_type.capitalize()} Avg. Spectral Dist.', color=color)
+    
+    first_tick_pos = np.argmax(np.isclose(param_values, first_tick))
+    # print(f"first_tick_pos: {first_tick_pos}")
+    # print(f"param_values: {param_values}")
+    # print(f"first_tick: {first_tick}")
+    axis.set_xticks(positions[first_tick_pos::xlabel_step])
+    axis.set_xticklabels(np.round(param_values[first_tick_pos::xlabel_step], 3))
+    
+    axis.set_xlabel(param_name)
+    axis.grid(True, alpha=0.3)
+    axis.tick_params(axis='y', colors=color)
+
+    plt.tight_layout()
+
+    if figfile is not None:
+        plt.savefig(figfile, dpi=300, bbox_inches='tight')
+
+    return spec_dist_means, spec_dist_distributions
+
+
+def old_plot_average_spectral_distance_for_same_param_val(graphs, matrix_type, param_name, param_values, n_graphs_per_param_val,
         plot_violin_and_medians=False, figfile=None, xlabel_step=4):
     
     param_wise_graph_lists = []
@@ -565,7 +677,6 @@ def plot_average_spectral_distance_for_same_param_val(graphs, matrix_type, param
     # plt.show()
     
     positions = np.arange(len(param_values))
-
 
     if plot_violin_and_medians:
         plt.figure(figsize=(6,5))

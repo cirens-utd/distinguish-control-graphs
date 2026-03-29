@@ -177,8 +177,6 @@ def pseudo_gramian_for_semistable_A_inf_horizon(A, B, t=np.inf, tol=1e-4, opt_to
     return P_opt
 
 
-import numpy as np
-
 def compute_energy_transfer_edge_centrality(A, T):
     """
     Compute c_ij from adjacency matrix A up to time T.

@@ -263,7 +263,8 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
         skip_toggling_of_edges_that_disconnect_graph=False, use_this_sys_matrix_spec_dist_for_corr=[],
         sort_by=None, plot_this=None, third_plot=None, label_figure_for_paper=False,
         plot_single_edge_flip_scores=False, rand_edge_order={}, fig_output_file_name=None,
-        results_file=None, other_pairs_of_quantities_to_plot=[], t_horizon_setting_for_ETEC='2n'):
+        results_file=None, other_pairs_of_quantities_to_plot=[], t_horizon_setting_for_ETEC='2n',
+        score_order='ascending'):
     
     options = {'graph_choices': graph_choices,
                'graphs': graphs,
@@ -277,7 +278,8 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                't_horizon_setting_for_ETEC': t_horizon_setting_for_ETEC,
                'third_plot': third_plot,
                'label_figure_for_paper': label_figure_for_paper,
-               'fig_output_file_name': fig_output_file_name}
+               'fig_output_file_name': fig_output_file_name,
+               'score_order': score_order}
     
     if len(use_this_sys_matrix_spec_dist_for_corr) > 0:
         options['use_this_sys_matrix_spec_dist_for_corr'] = use_this_sys_matrix_spec_dist_for_corr[0]

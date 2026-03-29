@@ -273,6 +273,8 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
     else:
         sorted_data_asc = sorted(ranking_of_edges.items(), key=lambda item: item[1][options['edge_score_choice']])
         edges = [item[0] for item in sorted_data_asc]
+        if options.get('score_order', 'ascending') == 'descending':
+            edges = edges[::-1]
 
     for i, j in tqdm(edges, leave=False, disable=True):
         u, v = nodes[i], nodes[j]

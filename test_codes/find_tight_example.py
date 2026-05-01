@@ -120,18 +120,20 @@ def find_violation(
     max_trials: int = 10000,
     verbose: bool = False,
     k_greater_than: int = 0,
+    matrix_choice: str = "adjacency",
 ):
     """
     Generate one ER graph G(n, p), then repeatedly perturb it starting from the
     original graph each time.
 
     In each trial:
-      - compute eigenvalues of original and perturbed adjacency matrices
+      - compute eigenvalues of original and perturbed matrices, where
+        matrix_choice is either "adjacency" or "laplacian"
       - compute abs difference vector
-      - compare max(abs_diff) to 2*sqrt(k*E)
+      - for adjacency, compare max(abs_diff) to sqrt(2k) * diff_frob_norm
+      - for laplacian, compare max(abs_diff) to sqrt(n) * diff_frob_norm
 
-    Stop on the first trial where:
-        max(abs_diff) >= 2*sqrt(k*E)
+    Stop on the first trial where the chosen abs_diff exceeds the chosen bound.
 
     Returns
     -------
@@ -144,6 +146,8 @@ def find_violation(
         raise ValueError("p must be in [0, 1].")
     if max_trials < 1:
         raise ValueError("max_trials must be at least 1.")
+    if matrix_choice not in ("adjacency", "laplacian"):
+        raise ValueError('matrix_choice must be either "adjacency" or "laplacian".')
 
     # Fixed original graph
     G_original = nx.erdos_renyi_graph(n=n, p=p, seed=graph_seed)
@@ -152,7 +156,7 @@ def find_violation(
     nodelist = sorted(G_original.nodes())
 
     # Original eigenvalues (computed once)
-    A_orig = get_system_matrix_from_graph(G_original, matrix_choice="adjacency")
+    A_orig = get_system_matrix_from_graph(G_original, matrix_choice=matrix_choice)
     eig_orig = real_eigval_for_potentially_nonsymmetric_matrix(A_orig)
 
     rng = np.random.default_rng(experiment_seed)
@@ -168,19 +172,28 @@ def find_violation(
         if k <= k_greater_than:
             continue
 
-        A_new = get_system_matrix_from_graph(G_new, matrix_choice="adjacency")
+        A_new = get_system_matrix_from_graph(G_new, matrix_choice=matrix_choice)
         eig_new = real_eigval_for_potentially_nonsymmetric_matrix(A_new)
+        
         abs_diff = np.sum(np.abs(eig_orig - eig_new))
+        diff_frob_norm = np.linalg.norm(A_orig - A_new, ord='fro')
 
-        bound = 2.0 * math.sqrt(k * E)
+        if matrix_choice == "laplacian":
+            bound = math.sqrt(n) * diff_frob_norm
+            bound_label = "sqrt(n) * diff_frob_norm"
+        elif matrix_choice == "adjacency":
+            # bound = math.sqrt(2*k) * diff_frob_norm
+            # bound_label = "sqrt(2k) * diff_frob_norm"
+            bound = 2 * math.sqrt(k * E)
+            bound_label = "2 * sqrt(k * E)"
+        else:
+            raise ValueError(f"Unknown matrix_choice: {matrix_choice}")
 
-        if verbose:
+        if verbose or trial % 1000 == 0:
             print(
                 f"trial={trial:5d} | k={k:3d} | E={E:5d} | "
-                f"max|Δλ|={abs_diff:.6f} | bound={bound:.6f} | closest_diff={closest_diff:.6f}"
+                f"max|Δλ|={abs_diff:.6f} | bound={bound:.6f} | closest_diff={closest_diff:.6f} | diff_frob_norm={diff_frob_norm:.6f}"
             )
-        elif trial % 1000 == 0:
-            print(f"trial={trial:5d} | k={k:3d} | E={E:5d} | max|Δλ|={abs_diff:.6f} | bound={bound:.6f} | closest_diff={closest_diff:.6f}")
 
         if abs(abs_diff - bound) < closest_diff or abs_diff - bound > -1e-5*bound:
             closest_diff = abs_diff - bound
@@ -189,6 +202,8 @@ def find_violation(
                 "k": k,
                 "E": E,
                 "bound": bound,
+                "bound_formula": bound_label,
+                "matrix_choice": matrix_choice,
                 "abs_diff": abs_diff,
                 "selected_nodes": np.array(selected_nodes),
                 "flipped_edges": flipped_edges,
@@ -201,7 +216,7 @@ def find_violation(
                 "G_new": G_new,
             }
             if abs_diff - bound > -1e-5*bound:
-                print(f"{RED}Found example where max(|Δλ|) >= 2*sqrt(kE) at trial {trial}{RESET}")
+                print(f"{RED}Found example where max(|Δλ|) >= {bound_label} at trial {trial}{RESET}")
                 return best
 
     return {
@@ -213,10 +228,11 @@ def find_violation(
 if __name__ == "__main__":
     # Example parameters
     n = 4
-    p = 0.3
+    p = 0.33
     graph_seed = np.random.randint(0, 1000000)
     experiment_seed = np.random.randint(0, 1000000)
     max_trials = 50000
+    matrix_choice = "adjacency"  # Use "laplacian" for the 2*n*sqrt(E) bound
 
     result = find_violation(
         n=n,
@@ -226,6 +242,7 @@ if __name__ == "__main__":
         max_trials=max_trials,
         verbose=False,
         k_greater_than=1,
+        matrix_choice=matrix_choice,
     )
 
     print("\n--- RESULT ---")

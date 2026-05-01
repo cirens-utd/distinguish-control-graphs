@@ -217,12 +217,14 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
         temp_options = deepcopy(options)
         temp_options['graph'] = graph
         temp_options['graph_choice'] = graph_choices[idx]
+        
         if multiple_toggles:
             ranking_of_edges_by_single_edge_flip, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options)
-            results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options, ranking_of_edges=ranking_of_edges_by_single_edge_flip)
         else:
             ranking_of_edges_by_single_edge_flip = None
-            results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options)
+        results_per_edge_toggled, other_results = rank_edges_based_on_toggling_single_edge(graphs[idx], temp_options,
+            ranking_of_edges=ranking_of_edges_by_single_edge_flip, sample_multiple_edges_uniformly_num_trials=options['sample_multiple_edges_uniformly_num_trials'])
+        
         corr_coef_score_this_iter, all_corr_coef_scores_this_iter = plot_results(results_per_edge_toggled, other_results, temp_options,
                 ax1=ax1, ranking_of_edges_by_single_edge_flip=ranking_of_edges_by_single_edge_flip, sort_by=sort_by, debug_dont_plot=debug_dont_plot)
         all_corr_coef_score_results_for_all_graphs.append(all_corr_coef_scores_this_iter)
@@ -241,11 +243,16 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
     else:
         if multiple_toggles:
             if options.get('first_quantity_plotted_is_edge_score', False):
-                fig.supxlabel(f"Number of edges flipped")
+                label = f"Number of edges flipped"
             else:
-                fig.supxlabel(f"Multiple edges flipped. X-axis is the number of the experiment.")
+                label = f"Multiple edges flipped. X-axis is the number of the experiment."
         else:
-            fig.supxlabel(f"Edge flips (one at a time) sorted by change in {options['edge_score_choice']}")
+            label = f"Edge flips sorted by change in {sort_by}"
+        if options.get('only_add_edges', False):
+            label += " (only added edges)"
+        elif options.get('only_remove_edges', False):
+            label += " (only removed edges)"
+        fig.supxlabel(label)
         plt.tight_layout()
         if not debug_dont_plot:
             # fig.legend(loc='outside lower center', ncol=2)
@@ -264,7 +271,8 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
         sort_by=None, plot_this=None, third_plot=None, label_figure_for_paper=False,
         plot_single_edge_flip_scores=False, rand_edge_order={}, fig_output_file_name=None,
         results_file=None, other_pairs_of_quantities_to_plot=[], t_horizon_setting_for_ETEC='2n',
-        score_order='ascending'):
+        score_order='ascending', sample_multiple_edges_uniformly_num_trials=None,
+        only_add_edges=False, only_remove_edges=False):
     
     options = {'graph_choices': graph_choices,
                'graphs': graphs,
@@ -279,7 +287,10 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                'third_plot': third_plot,
                'label_figure_for_paper': label_figure_for_paper,
                'fig_output_file_name': fig_output_file_name,
-               'score_order': score_order}
+               'score_order': score_order,
+               'sample_multiple_edges_uniformly_num_trials': sample_multiple_edges_uniformly_num_trials,
+               'only_add_edges': only_add_edges,
+               'only_remove_edges': only_remove_edges}
     
     if len(use_this_sys_matrix_spec_dist_for_corr) > 0:
         options['use_this_sys_matrix_spec_dist_for_corr'] = use_this_sys_matrix_spec_dist_for_corr[0]

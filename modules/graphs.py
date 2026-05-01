@@ -14,6 +14,7 @@ from tqdm import trange, tqdm
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import scipy
+import random
 
 
 # Default RNG
@@ -163,7 +164,7 @@ def real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(M):
     return eigvals_M, eigvecs_M
 
 
-def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
+def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None, sample_multiple_edges_uniformly_num_trials=None):
     # If a ranking of edges is provided, edges are toggled cumulatively instead of one-by-one.
     # To toggle edges one-by-one, do not provide ranking_of_edges
     if 'skip_toggling_of_edges_that_disconnect_graph' not in options:
@@ -254,8 +255,8 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
     # if calculate_W_stuff:
     W_lambda_min = float(np.min(W_eigvals))
 
-    nodes = list(G.nodes())
-    n = len(nodes)
+    nodes = np.array(G.nodes())
+    n = nodes.shape[0]
     results_per_edge = {}
 
     G_mod = deepcopy(G)
@@ -264,29 +265,67 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
         u = nodes[i]
         if G.has_edge(u, u):
             raise ValueError(f"Non-simple graphs not supported.")
+    
+    if nx.is_directed(G):
+        all_node_index_pairs = [(i, j) for i in range(n) for j in range(n) if i != j]
+    else:
+        all_node_index_pairs = [(i, j) for i in range(n) for j in range(n) if j > i + 1]
+    
+    only_remove_edges = options['only_remove_edges']
+    only_add_edges = options['only_add_edges']
 
-    if ranking_of_edges is None:
-        if nx.is_directed(G):
-            edges = [(i, j) for i in range(n) for j in range(n) if i != j]
-        else:
-            edges = [(i, j) for i in range(n) for j in range(n) if j > i + 1]
+    if only_remove_edges and only_add_edges:
+        raise ValueError("only_remove_edges and only_add_edges cannot both be True.")
+
+    if only_remove_edges:
+        all_node_index_pairs = [
+            (i, j) for i, j in all_node_index_pairs
+            if G.has_edge(nodes[i], nodes[j])
+        ]
+    elif only_add_edges:
+        all_node_index_pairs = [
+            (i, j) for i, j in all_node_index_pairs
+            if not G.has_edge(nodes[i], nodes[j])
+        ]
+    
+    if sample_multiple_edges_uniformly_num_trials is not None:
+        edges = []
+        for _ in range(sample_multiple_edges_uniformly_num_trials):
+            num_edges = random.randint(1, len(all_node_index_pairs))
+            edges.append(random.sample(all_node_index_pairs, num_edges))
+    elif ranking_of_edges is None:
+        edges = all_node_index_pairs
     else:
         sorted_data_asc = sorted(ranking_of_edges.items(), key=lambda item: item[1][options['edge_score_choice']])
         edges = [item[0] for item in sorted_data_asc]
         if options.get('score_order', 'ascending') == 'descending':
             edges = edges[::-1]
 
-    for i, j in tqdm(edges, leave=False, disable=True):
-        u, v = nodes[i], nodes[j]
-
+    trial_no = 0
+    for edge_tuples in tqdm(edges, leave=False, disable=True):
         # Modify the graph: toggle edge presence
         if ranking_of_edges is None:
             G_mod = deepcopy(G)
         G_mod_before_edge_toggle = deepcopy(G_mod)
-        if G_mod.has_edge(u, v):
-            G_mod.remove_edge(u, v)
+
+        if not isinstance(edge_tuples, list):
+            edge_tuples = [edge_tuples]
+        i, j = zip(*edge_tuples)
+        i = list(i)
+        j = list(j)
+        for u, v in zip(nodes[i], nodes[j]):
+            if G_mod.has_edge(u, v):
+                G_mod.remove_edge(u, v)
+            else:
+                G_mod.add_edge(u, v)
+        
+        graph_edit_distance = None
+        if sample_multiple_edges_uniformly_num_trials is not None:
+            # print(f"Trial {trial_no}: {len(edge_tuples)} edges toggled")
+            results_key = trial_no
+            graph_edit_distance = len(edge_tuples)
         else:
-            G_mod.add_edge(u, v)
+            results_key = (u,v)
 
         if skip_toggling_of_edges_that_disconnect_graph and (not nx.is_connected(G_mod)):
             # print(f"Skipping disconnected graph obtained by removing edge ({u}, {v}).")
@@ -327,7 +366,7 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
         W_rank_diff = np.abs(W_rank - W_mod_rank)
 
         if 'ETEC' in edge_score_choice:
-            ETEC_score = ETEC[i, j]
+            ETEC_score = np.sum(ETEC[i, j])
 
         match edge_score_choice:
             case 'sys_mat_spec_dist':
@@ -348,7 +387,7 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
                 score = ETEC_score
             case 'random':
                 if len(options['rand_edge_order']) > 0:
-                    score = options['rand_edge_order'][(u, v)]
+                    score = options['rand_edge_order'][results_key]
                 else:
                     score = np.random.rand()
             case _:
@@ -359,23 +398,26 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None):
             other_system_matrices_mod_eigvals = [real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(S)[0] for S in other_system_matrices_mod]
             other_system_matrices_spec_dist = [spectral_distance(S, S_mod, M1_eigvals=S_eigvals, M2_eigvals=S_mod_eigvals) for S, S_mod, S_eigvals, S_mod_eigvals in zip(other_system_matrices, other_system_matrices_mod, other_system_matrices_eigvals, other_system_matrices_mod_eigvals)]
         
-        results_per_edge[(u, v)] = {}
-        results_per_edge[(u, v)][edge_score_choice] = score
-        results_per_edge[(u, v)]['sys_mat_spec_dist'] = A_spec_dist
+        results_per_edge[results_key] = {}
+        results_per_edge[results_key][edge_score_choice] = score
+        results_per_edge[results_key]['sys_mat_spec_dist'] = A_spec_dist
         if edge_score_choice == 'ETEC':
-            results_per_edge[(u, v)]['ETEC'] = ETEC_score
+            results_per_edge[results_key]['ETEC'] = ETEC_score
         # if calculate_W_stuff:
-        results_per_edge[(u, v)]['Wc_trace_diff'] = W_trace_diff
-        results_per_edge[(u, v)]['Wc_lambda_min_diff'] = W_lambda_min_diff
-        results_per_edge[(u, v)]['Wc_pinv_trace_diff'] = W_pinv_trace_diff
-        results_per_edge[(u, v)]['Wc_logdet_diff'] = W_logdet_diff
-        results_per_edge[(u, v)]['Wc_rank_diff'] = W_rank_diff
-        results_per_edge[(u, v)]['Wc_spec_dist'] = Wc_spec_dist
-        results_per_edge[(u, v)]['density'] = nx.density(G_mod)
+        results_per_edge[results_key]['Wc_trace_diff'] = W_trace_diff
+        results_per_edge[results_key]['Wc_lambda_min_diff'] = W_lambda_min_diff
+        results_per_edge[results_key]['Wc_pinv_trace_diff'] = W_pinv_trace_diff
+        results_per_edge[results_key]['Wc_logdet_diff'] = W_logdet_diff
+        results_per_edge[results_key]['Wc_rank_diff'] = W_rank_diff
+        results_per_edge[results_key]['Wc_spec_dist'] = Wc_spec_dist
+        results_per_edge[results_key]['density'] = nx.density(G_mod)
+        results_per_edge[results_key]['graph_edit_distance'] = graph_edit_distance
         
         if compute_spec_dist_of_other_sys_matrices:
             for i, matrix_choice in enumerate(other_system_matrix_choices):
-                results_per_edge[(u, v)][f'{matrix_choice}_spec_dist'] = other_system_matrices_spec_dist[i]
+                results_per_edge[results_key][f'{matrix_choice}_spec_dist'] = other_system_matrices_spec_dist[i]
+        
+        trial_no += 1
 
     return results_per_edge, other_results
 
@@ -809,3 +851,11 @@ def compute_zfs_transf_Gramian_spectra_of_given_two_graphs(adj1, adj2, t=1, matr
     print(f"Are the Gramians cospectral? {np.allclose(W1_eigvals, W2_eigvals)}")
 
     return W1_eigvals, W2_eigvals, M1_eigvals, M2_eigvals, G1, G2
+
+
+def three_graphs_with_params(params):
+    graph_choices = [{'type': 'connected_ER', 'n': params['n'], 'p': params['p']},
+                     {'type': 'connected_RG', 'n': params['n'], 'r': params['r']},
+                     {'type':           'BA', 'n': params['n'], 'm': params['m'], 'init': {'type': 'complete', 'n': round(0.4*params['n'])}}]
+    graphs = [get_graph(graph_choice=choice) for choice in graph_choices]
+    return graphs, graph_choices

@@ -52,8 +52,9 @@ def flip_edges_from_selected_nodes(
     # Work on a fresh copy so every trial starts from the original graph
     G_new = G_original.copy()
 
-    # Random k with 1 <= k <= n
+    # # Random k with 1 <= k <= n
     k = int(rng.integers(1, n + 1))
+    # k = 4
 
     # Randomly select k distinct nodes
     selected_nodes = rng.choice(nodelist, size=k, replace=False)
@@ -94,17 +95,21 @@ def flip_edges_from_selected_nodes(
     # for every flipped edge, at least one endpoint must remain selected.
     selected_nodes_set = set(selected_nodes.tolist())
 
-    for u in list(selected_nodes_set):
-        candidate_selected = selected_nodes_set - {u}
+    any_node_removed = True
+    while any_node_removed:
+        any_node_removed = False
+        for u in list(selected_nodes_set):
+            candidate_selected = selected_nodes_set - {u}
 
-        can_remove_u = True
-        for a, b in flipped_edges:
-            if a not in candidate_selected and b not in candidate_selected:
-                can_remove_u = False
-                break
+            can_remove_u = True
+            for a, b in flipped_edges:
+                if a not in candidate_selected and b not in candidate_selected:
+                    can_remove_u = False
+                    break
 
-        if can_remove_u:
-            selected_nodes_set.remove(u)
+            if can_remove_u:
+                selected_nodes_set.remove(u)
+                any_node_removed = True
 
     selected_nodes = np.array(sorted(selected_nodes_set, key=lambda node: node_to_idx[node]))
     k = len(selected_nodes)
@@ -149,20 +154,19 @@ def find_violation(
     if matrix_choice not in ("adjacency", "laplacian"):
         raise ValueError('matrix_choice must be either "adjacency" or "laplacian".')
 
-    # Fixed original graph
-    G_original = nx.erdos_renyi_graph(n=n, p=p, seed=graph_seed)
-
-    # Fix a consistent node order for all adjacency matrices / eigenvalue vectors
-    nodelist = sorted(G_original.nodes())
-
-    # Original eigenvalues (computed once)
-    A_orig = get_system_matrix_from_graph(G_original, matrix_choice=matrix_choice)
-    eig_orig = real_eigval_for_potentially_nonsymmetric_matrix(A_orig)
-
     rng = np.random.default_rng(experiment_seed)
 
     closest_diff = float('inf')
     for trial in range(1, max_trials + 1):
+        G_original = nx.erdos_renyi_graph(n=n, p=p, seed=graph_seed)
+
+        # Fix a consistent node order for all adjacency matrices / eigenvalue vectors
+        nodelist = sorted(G_original.nodes())
+
+        # Original eigenvalues (computed once)
+        A_orig = get_system_matrix_from_graph(G_original, matrix_choice=matrix_choice)
+        eig_orig = real_eigval_for_potentially_nonsymmetric_matrix(A_orig)
+
         G_new, k, E, selected_nodes, flipped_edges = flip_edges_from_selected_nodes(
             G_original=G_original,
             rng=rng,
@@ -174,6 +178,22 @@ def find_violation(
 
         A_new = get_system_matrix_from_graph(G_new, matrix_choice=matrix_choice)
         eig_new = real_eigval_for_potentially_nonsymmetric_matrix(A_new)
+
+        # if nx.is_empty(G_original):
+        #     print("Original graph is empty.")
+        # if nx.is_empty(G_new):
+        #     print(f"New graph is empty. k = {k}. E = {E}")
+        
+        # if abs(np.sum(A_orig)) < 1e-5 or abs(np.sum(A_new)) < 1e-5:
+        #     no_edges_in_one_graph = True
+        #     if E == 2:
+        #         two_edges_flipped_with_one_graph_empty = True
+        #         print('found a tight adjacency example!')
+        #     else:
+        #         two_edges_flipped_with_one_graph_empty = False
+        # else:
+        #     no_edges_in_one_graph = False
+        #     two_edges_flipped_with_one_graph_empty = False
         
         abs_diff = np.sum(np.abs(eig_orig - eig_new))
         diff_frob_norm = np.linalg.norm(A_orig - A_new, ord='fro')
@@ -182,18 +202,23 @@ def find_violation(
             bound = math.sqrt(n) * diff_frob_norm
             bound_label = "sqrt(n) * diff_frob_norm"
         elif matrix_choice == "adjacency":
-            # bound = math.sqrt(2*k) * diff_frob_norm
-            # bound_label = "sqrt(2k) * diff_frob_norm"
-            bound = 2 * math.sqrt(k * E)
-            bound_label = "2 * sqrt(k * E)"
+            bound = math.sqrt(2*k) * diff_frob_norm
+            bound_label = "sqrt(2k) * diff_frob_norm"
+            # bound = 2 * math.sqrt(k * E)
+            # bound_label = "2 * sqrt(k * E)"
         else:
             raise ValueError(f"Unknown matrix_choice: {matrix_choice}")
 
-        if verbose or trial % 1000 == 0:
+        if verbose or (trial % 1000 == 0):# or two_edges_flipped_with_one_graph_empty:
             print(
                 f"trial={trial:5d} | k={k:3d} | E={E:5d} | "
                 f"max|Δλ|={abs_diff:.6f} | bound={bound:.6f} | closest_diff={closest_diff:.6f} | diff_frob_norm={diff_frob_norm:.6f}"
             )
+            # if two_edges_flipped_with_one_graph_empty:
+            #     print("A_orig:")
+            #     print(A_orig)
+            #     print("A_new:")
+            #     print(A_new)
 
         if abs(abs_diff - bound) < closest_diff or abs_diff - bound > -1e-5*bound:
             closest_diff = abs_diff - bound
@@ -210,8 +235,8 @@ def find_violation(
                 "eig_original": eig_orig,
                 "eig_new": eig_new,
                 "abs_diff": abs_diff,
-                "A_original": nx.to_numpy_array(G_original, nodelist=nodelist, dtype=int),
-                "A_new": nx.to_numpy_array(G_new, nodelist=nodelist, dtype=int),
+                "A_original": A_orig,
+                "A_new": A_new,
                 "G_original": G_original,
                 "G_new": G_new,
             }
@@ -231,8 +256,8 @@ if __name__ == "__main__":
     p = 0.33
     graph_seed = np.random.randint(0, 1000000)
     experiment_seed = np.random.randint(0, 1000000)
-    max_trials = 50000
-    matrix_choice = "adjacency"  # Use "laplacian" for the 2*n*sqrt(E) bound
+    max_trials = 5000000
+    matrix_choice = "adjacency"
 
     result = find_violation(
         n=n,

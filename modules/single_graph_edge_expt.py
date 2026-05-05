@@ -69,8 +69,8 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
             if axis == 'y1':
                 continue
             quantity = [item[1][plot[axis]] for item in sorted_data_asc]
-            all_corr_coef_scores[(plot['y1'], plot[axis])] = {'spearmanr': scipy.stats.spearmanr(y1, quantity).statistic,
-                                                            'kendalltau': scipy.stats.kendalltau(y1, quantity).statistic}
+            all_corr_coef_scores[(plot['y1'], plot[axis])] = {'$\\rho_S$': scipy.stats.spearmanr(y1, quantity).statistic,
+                                                            '$\\tau_K$': scipy.stats.kendalltau(y1, quantity).statistic}
         
         # plt.figure(figsize=(7.2, 4.6))
         # plot_scatter(x, y2)
@@ -115,6 +115,10 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
             else:
                 y4 = [item[1][options['third_plot']] for item in sorted_data_asc]
                 label = options['third_plot']
+            all_corr_coef_scores[(plot['y1'], options['third_plot'])] = {'$\\rho_S$': scipy.stats.spearmanr(y1, y4).statistic,
+                                                                       '$\\tau_K$': scipy.stats.kendalltau(y1, y4).statistic}
+            all_corr_coef_scores[(plot[axis], options['third_plot'])] = {'$\\rho_S$': scipy.stats.spearmanr(quantity, y4).statistic,
+                                                                       '$\\tau_K$': scipy.stats.kendalltau(quantity, y4).statistic}
             ymin_ax2, ymax_ax2 = ax2.get_ylim()
             if np.max(y4) != np.min(y4):
                 y4_scaled = ymin_ax2 + (y4 - np.min(y4)) * (ymax_ax2 - ymin_ax2) / (np.max(y4) - np.min(y4))
@@ -127,6 +131,10 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
                                 f'Kendall rank coefficient: {kendalltau_coef:.2g}'
         if options['label_figure_for_paper']:
             title = coefficients_in_title
+        elif options['label_figure_for_paper_with_graph_info']:
+            title = f'Graph: {options['graph_choice']}\n'
+            for k, v in all_corr_coef_scores.items():
+                title += f"{k}: " + ', '.join(f'{k2}: {float(v2):.2g}' for k2, v2 in v.items()) + '\n'
         else:
             title = f'Graph: {options['graph_choice']}\n' + \
                 f'System matrix: {options['graph_matrix_choice']}\n' + \
@@ -154,9 +162,15 @@ def compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_cor
     densities = options['graph_metrics']['density']
     density_avg = np.mean(densities)
     density_std = np.std(densities)
+    min_densities = options['graph_metrics']['min_density']
+    min_density_avg = np.mean(min_densities)
+    min_density_std = np.std(min_densities)
+    max_densities = options['graph_metrics']['max_density']
+    max_density_avg = np.mean(max_densities)
+    max_density_std = np.std(max_densities)
 
     if results_file is not None:
-        f = open(results_file, 'a')
+        f = open(results_file, 'a', encoding='utf-8')
         # format: n_graphs, sys_matrix, graph_type, n_nodes, graph_param, density_avg, density_std, input, edge_score, quantity_pair_in_quotations, metric_1, corr_coef_avg_1, corr_coef_std_1, metric_2, corr_coef_avg_2, corr_coef_std_2
         f.write(f"{len(options['graphs'])}, ")
         f.write(f"{options['graph_matrix_choice']}, ")
@@ -169,6 +183,8 @@ def compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_cor
         f.write(f"{density_std:.3g}, ")
         f.write(f"{options['input']}, ")
         f.write(f"{options['edge_score_choice']}, ")
+        f.write(f"[{min_density_avg:.3g} ± {min_density_std:.3g}, {max_density_avg:.3g} ± {max_density_std:.3g}], ")
+        f.write(f" {options['fraction_of_removals_in_randomly_flipped_edges']}, ")
     
     for quantity_pair in corr_coef_scores_avg.keys():
         results_for_this_pair = [all_corr_coef_score_results_for_all_graphs[j][quantity_pair] for j in range(len(all_corr_coef_score_results_for_all_graphs))]
@@ -212,6 +228,8 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
     all_corr_coef_score_results_for_all_graphs = []
     options['graph_metrics'] = {}
     options['graph_metrics']['density'] = []
+    options['graph_metrics']['min_density'] = []
+    options['graph_metrics']['max_density'] = []
     for idx, graph in enumerate(tqdm(graphs, desc="Processing graphs")):
         ax1 = axes[0, idx]
         temp_options = deepcopy(options)
@@ -234,8 +252,13 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
         elif sum_of_corr_coef_scores_this_iter > 0.7*len(corr_coef_score_this_iter):
             high_corr_coef_score = corr_coef_score_this_iter
         options['graph_metrics']['density'].append(nx.density(graph))
-    
-    compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_corr_coef_score_results_for_all_graphs, options)
+        options['graph_metrics']['min_density'].append(other_results['min_density'])
+        options['graph_metrics']['max_density'].append(other_results['max_density'])
+
+    compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(
+        all_corr_coef_score_results_for_all_graphs=all_corr_coef_score_results_for_all_graphs,
+        options=options
+    )
 
     if (not debug_dont_plot) and ((low_corr_coef_score is not None) and (high_corr_coef_score is None)) and (not plot_all_ignoring_low_corr):
         plt.close(fig)
@@ -247,7 +270,7 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
             else:
                 label = f"Multiple edges flipped. X-axis is the number of the experiment."
         else:
-            label = f"Edge flips sorted by change in {sort_by}"
+            label = f"Experiments sorted by change in {sort_by}"
         if options.get('only_add_edges', False):
             label += " (only added edges)"
         elif options.get('only_remove_edges', False):
@@ -268,11 +291,12 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
         edge_score_choices, gramian_choices=['finite_continuous'], t_horizon=1, plot_all_ignoring_low_corr=False,
         multiple_toggles=False, debug_dont_plot=False, plot_these_graph_matrices_spec_dist=[],
         skip_toggling_of_edges_that_disconnect_graph=False, use_this_sys_matrix_spec_dist_for_corr=[],
-        sort_by=None, plot_this=None, third_plot=None, label_figure_for_paper=False,
+        sort_by=None, plot_this=None, third_plot=None,
+        label_figure_for_paper=False, label_figure_for_paper_with_graph_info=False,
         plot_single_edge_flip_scores=False, rand_edge_order={}, fig_output_file_name=None,
         results_file=None, other_pairs_of_quantities_to_plot=[], t_horizon_setting_for_ETEC='2n',
         score_order='ascending', sample_multiple_edges_uniformly_num_trials=None,
-        only_add_edges=False, only_remove_edges=False):
+        fraction_of_removals_in_randomly_flipped_edges=None):
     
     options = {'graph_choices': graph_choices,
                'graphs': graphs,
@@ -286,11 +310,11 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                't_horizon_setting_for_ETEC': t_horizon_setting_for_ETEC,
                'third_plot': third_plot,
                'label_figure_for_paper': label_figure_for_paper,
+               'label_figure_for_paper_with_graph_info': label_figure_for_paper_with_graph_info,
                'fig_output_file_name': fig_output_file_name,
                'score_order': score_order,
                'sample_multiple_edges_uniformly_num_trials': sample_multiple_edges_uniformly_num_trials,
-               'only_add_edges': only_add_edges,
-               'only_remove_edges': only_remove_edges}
+               'fraction_of_removals_in_randomly_flipped_edges': fraction_of_removals_in_randomly_flipped_edges}
     
     if len(use_this_sys_matrix_spec_dist_for_corr) > 0:
         options['use_this_sys_matrix_spec_dist_for_corr'] = use_this_sys_matrix_spec_dist_for_corr[0]

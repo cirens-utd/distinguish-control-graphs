@@ -19,8 +19,10 @@ graph_choices = [{'type': 'connected_ER', 'n': 20, 'p': 0.5},
                  {'type':           'BA', 'n': 20, 'm': 5, 'init': {'type': 'complete', 'n': 5}}]
 graphs = [get_graph(graph_choice=choice) for choice in graph_choices]
 
-graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices, graphs, matrix_choices=['neg_laplacian'], input_choices=['identity'],
-        edge_score_choices=['ETEC_sys_mat'], t_horizon=40, multiple_toggles=True, plot_all_ignoring_low_corr=True)
+graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices, graphs, matrix_choices=['adjacency'], input_choices=['all_ones'],
+                        edge_score_choices=['ETEC'], plot_all_ignoring_low_corr=True, plot_this='Wc_spec_dist', third_plot='density',
+                        sample_multiple_edges_uniformly_num_trials=100, sort_by='graph_edit_distance',
+                        fraction_of_removals_in_randomly_flipped_edges=0)
 
 
 

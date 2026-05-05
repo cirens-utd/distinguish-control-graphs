@@ -143,11 +143,18 @@ def get_input(G, options, B_old=None, T=None, modified_matrix=False):
     return B
 
 
+def is_symmetric(M, tol_factor=1e-10):
+    max_val = np.max(np.abs(M))
+    tol = tol_factor*max_val
+    diff_max_val = np.max(np.abs(M - M.T))
+    if diff_max_val > tol:
+        print(f"Matrix:\n{M}")
+        raise RuntimeError(f"Matrix is not symmetric. Max difference: {diff_max_val}. Max val: {max_val}, tol: {tol}")
+    return True
+
+
 def real_eigval_for_potentially_nonsymmetric_matrix(M):
-    tol = 1e-4*np.max(np.abs(M))
-    if not scipy.linalg.issymmetric(M, atol=tol, rtol=0):
-        raise RuntimeError(f"Matrix is not symmetric. Norm of differnce: {np.linalg.norm(M - M.T)}. Max val: {np.max(np.abs(M))}, tol: {tol}")
-    else:
+    if is_symmetric(M, tol_factor=1e-4):
         eigvals_M = eigvalsh(M)
     # eigvals_M = eigvals(M)
     # if np.max(np.abs(eigvals_M.imag)) > 1e-10*np.max(np.abs(eigvals_M)):
@@ -157,9 +164,7 @@ def real_eigval_for_potentially_nonsymmetric_matrix(M):
 
 
 def real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(M):
-    if not scipy.linalg.issymmetric(M, atol=1e-10*np.max(np.abs(M))):
-        raise RuntimeError(f"Matrix is not symmetric. Norm of differnce: {np.linalg.norm(M - M.T)}. Max val: {np.max(np.abs(M))}")
-    else:
+    if is_symmetric(M, tol_factor=1e-4):
         eigvals_M, eigvecs_M = np.linalg.eigh(M)
     return eigvals_M, eigvecs_M
 
@@ -252,6 +257,8 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None, 
     other_results = {}
     other_results['A_lambda_min'] = float(np.min(A_eigvals))
     other_results['A_lambda_max'] = float(np.max(A_eigvals))
+    other_results['min_density'] = nx.density(G)
+    other_results['max_density'] = nx.density(G)
     # if calculate_W_stuff:
     W_lambda_min = float(np.min(W_eigvals))
 
@@ -271,28 +278,47 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None, 
     else:
         all_node_index_pairs = [(i, j) for i in range(n) for j in range(n) if j > i + 1]
     
-    only_remove_edges = options['only_remove_edges']
-    only_add_edges = options['only_add_edges']
-
-    if only_remove_edges and only_add_edges:
-        raise ValueError("only_remove_edges and only_add_edges cannot both be True.")
-
-    if only_remove_edges:
-        all_node_index_pairs = [
-            (i, j) for i, j in all_node_index_pairs
-            if G.has_edge(nodes[i], nodes[j])
-        ]
-    elif only_add_edges:
-        all_node_index_pairs = [
-            (i, j) for i, j in all_node_index_pairs
-            if not G.has_edge(nodes[i], nodes[j])
-        ]
+    if sample_multiple_edges_uniformly_num_trials is None and fraction_of_removals_in_randomly_flipped_edges is not None:
+        raise ValueError("fraction_of_removals_in_randomly_flipped_edges can only be used with sample_multiple_edges_uniformly_num_trials.")
     
     if sample_multiple_edges_uniformly_num_trials is not None:
+        fraction_of_removals_in_randomly_flipped_edges = options['fraction_of_removals_in_randomly_flipped_edges']
+        fraction_of_additions_in_randomly_flipped_edges = 1 - fraction_of_removals_in_randomly_flipped_edges
+        addable_edges = []
+        removable_edges = []
+        for i, j in all_node_index_pairs:
+            if G.has_edge(nodes[i], nodes[j]):
+                removable_edges.append((i, j))
+            else:
+                addable_edges.append((i, j))
+        
+        if fraction_of_additions_in_randomly_flipped_edges < 1e-6:
+            max_flips_by_addable = len(removable_edges)
+        else:
+            max_flips_by_addable = int(len(addable_edges) / fraction_of_additions_in_randomly_flipped_edges)
+        
+        if fraction_of_removals_in_randomly_flipped_edges < 1e-6:
+            max_flips_by_removable = len(addable_edges)
+        else:
+            max_flips_by_removable = int(len(removable_edges) / fraction_of_removals_in_randomly_flipped_edges)
+        
+        max_flips = min(max_flips_by_addable, max_flips_by_removable)
+        # print(f"Max flips: {max_flips}")
+        
         edges = []
         for _ in range(sample_multiple_edges_uniformly_num_trials):
-            num_edges = random.randint(1, len(all_node_index_pairs))
-            edges.append(random.sample(all_node_index_pairs, num_edges))
+            num_edges = random.randint(1, max_flips)
+            num_additions = int(num_edges * fraction_of_additions_in_randomly_flipped_edges)
+            num_removals = num_edges - num_additions
+            if num_additions > len(addable_edges):
+                old_num_additions = num_additions
+                num_additions = len(addable_edges)
+                num_removals = int(num_additions / old_num_additions * num_removals)
+            if num_removals > len(removable_edges):
+                old_num_removals = num_removals
+                num_removals = len(removable_edges)
+                num_additions = int(num_removals / old_num_removals * num_additions)
+            edges.append(random.sample(removable_edges, num_removals) + random.sample(addable_edges, num_additions))
     elif ranking_of_edges is None:
         edges = all_node_index_pairs
     else:
@@ -331,6 +357,8 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None, 
             # print(f"Skipping disconnected graph obtained by removing edge ({u}, {v}).")
             G_mod = G_mod_before_edge_toggle
             continue
+
+        G_mod_density = nx.density(G_mod)
 
         A_mod = get_system_matrix_from_graph(G_mod, options['graph_matrix_choice'])
         if np.isnan(A_mod).any():
@@ -410,7 +438,9 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None, 
         results_per_edge[results_key]['Wc_logdet_diff'] = W_logdet_diff
         results_per_edge[results_key]['Wc_rank_diff'] = W_rank_diff
         results_per_edge[results_key]['Wc_spec_dist'] = Wc_spec_dist
-        results_per_edge[results_key]['density'] = nx.density(G_mod)
+        results_per_edge[results_key]['density'] = G_mod_density
+        other_results['min_density'] = min(other_results['min_density'], G_mod_density)
+        other_results['max_density'] = max(other_results['max_density'], G_mod_density)
         results_per_edge[results_key]['graph_edit_distance'] = graph_edit_distance
         
         if compute_spec_dist_of_other_sys_matrices:
@@ -527,7 +557,7 @@ def zero_forcing_set_greedy(G):
     return B
 
 
-def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency', plot_type='matrix', figfile=None, axis=None,
+def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency', input=None, plot_type='matrix', figfile=None, axis=None,
         right_axis=False, ylabel='default'):
     """
     Given a list of graphs, compute a matrix of pairwise spectral distances.
@@ -541,6 +571,10 @@ def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency
     graph_matrices = []
     for G in graphs:
         A = get_system_matrix_from_graph(G, matrix_choice=matrix_type)
+        if input is not None:
+            options = {'input': input}
+            B = get_input(G, options)
+            A = finite_time_gramian(A, B, t=1)
         graph_matrices.append(A)
         eigvals, _ = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(A)
         eigvals_list.append(eigvals)
@@ -597,7 +631,7 @@ def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency
 
 
 def plot_average_spectral_distance_for_same_param_val(graphs, matrix_type, param_name, param_values, n_graphs_per_param_val,
-        plot_violin_and_medians=False, figfile=None, xlabel_step=8, axis=None, right_axis=False, first_tick=0.2):
+        input=None, log_scale=False, plot_violin_and_medians=False, figfile=None, xlabel_step=8, axis=None, right_axis=False, first_tick=0.2):
     
     param_wise_graph_lists = []
     graphs_idx = 0
@@ -611,7 +645,9 @@ def plot_average_spectral_distance_for_same_param_val(graphs, matrix_type, param
     spec_dist_means = []
     spec_dist_distributions = []
     for graph_list in tqdm(param_wise_graph_lists, desc="Computing spectral distances"):
-        dist_matrix, _, _ = compute_matrix_of_pairwise_spectral_distances(graph_list, matrix_type=matrix_type, plot_type='none')
+        dist_matrix, _, _ = compute_matrix_of_pairwise_spectral_distances(graph_list, matrix_type=matrix_type, input=input, plot_type='none')
+        if log_scale:
+            dist_matrix = np.where(dist_matrix > 1e-10, np.log10(dist_matrix), 0)
         spec_dist_means.append(np.mean(dist_matrix))
         spec_dist_distributions.append(dist_matrix.flatten())
     
@@ -672,7 +708,10 @@ def plot_average_spectral_distance_for_same_param_val(graphs, matrix_type, param
     else:
         # just plot the means
         axis.plot(positions, spec_dist_means, 'o-', color=color)
-        axis.set_ylabel(f'{matrix_type.capitalize()} Avg. Spectral Dist.', color=color)
+        ylabel = f'{matrix_type.capitalize()} Avg. Spectral Dist.'
+        if log_scale:
+            ylabel = f'Log10({ylabel})'
+        axis.set_ylabel(ylabel, color=color)
     
     first_tick_pos = np.argmax(np.isclose(param_values, first_tick))
     # print(f"first_tick_pos: {first_tick_pos}")

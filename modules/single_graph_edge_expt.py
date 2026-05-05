@@ -35,6 +35,18 @@ def adjust_ylabel_for_paper(ylabel, options):
     return new_label
 
 
+def get_stats_for_two_vars(x, y, stat_type_list):
+    stats = {}
+    for stat_type in stat_type_list:
+        if stat_type == 'spearmanr':
+            stats['$\\rho_S$'] = scipy.stats.spearmanr(x, y).statistic
+        elif stat_type == 'kendalltau':
+            stats['$\\tau_K$'] = scipy.stats.kendalltau(x, y).statistic
+        elif stat_type == 'pearsonr':
+            stats['$\\rho_P$'] = scipy.stats.pearsonr(x, y).statistic
+    return stats
+
+
 def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None,
                  ranking_of_edges_by_single_edge_flip=None, sort_by=None, debug_dont_plot=False):
     sorted_data_asc = sorted(results_per_edge.items(), key=lambda item: item[1][sort_by])
@@ -61,16 +73,14 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
                         corr_y1_with_this = y3[-1]
 
         # pearson_coef = np.corrcoef(y1, y2)[0, 1]
-        spearman_coef = scipy.stats.spearmanr(y1, corr_y1_with_this).statistic
-        kendalltau_coef = scipy.stats.kendalltau(y1, corr_y1_with_this).statistic
-        corr_coef_scores = [spearman_coef, kendalltau_coef]
+        corr_coef_scores_dict = get_stats_for_two_vars(y1, corr_y1_with_this, ['spearmanr', 'kendalltau'])
+        corr_coef_scores = [corr_coef_scores_dict['$\\rho_S$'], corr_coef_scores_dict['$\\tau_K$']]
 
         for axis in plot:
             if axis == 'y1':
                 continue
             quantity = [item[1][plot[axis]] for item in sorted_data_asc]
-            all_corr_coef_scores[(plot['y1'], plot[axis])] = {'$\\rho_S$': scipy.stats.spearmanr(y1, quantity).statistic,
-                                                            '$\\tau_K$': scipy.stats.kendalltau(y1, quantity).statistic}
+            all_corr_coef_scores[(plot['y1'], plot[axis])] = get_stats_for_two_vars(y1, quantity, ['spearmanr', 'kendalltau', 'pearsonr'])
         
         # plt.figure(figsize=(7.2, 4.6))
         # plot_scatter(x, y2)

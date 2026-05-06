@@ -5,8 +5,13 @@ import matplotlib.pyplot as plt
 
 
 CSV_FILE = "controlled_density_edge_flip_results.csv"
+
 X_COL_NUM = 14  # 1-based column number for density_delta_from_avg
+
+SYSTEM_MATRIX_TYPE_COL_NUM = 2  # 1-based column number for system matrix type
 GRAPH_TYPE_COL_NUM = 3  # 1-based column number for graph_type
+
+ALLOWED_SYSTEM_MATRIX_TYPES = {"adjacency", "neg_laplacian"}
 ALLOWED_GRAPH_TYPES = {"connected_ER", "connected_RG", "BA"}
 
 
@@ -149,6 +154,9 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None, graph_types=None
     Different graph types are shown using different marker shapes and colors.
     Legend entries are shown only once in a single row at the top of all plots.
 
+    For each selected column, this function reports the maximum x-axis value
+    for which the absolute coefficient value is below the 0.95 and 0.8 lines.
+
     Parameters
     ----------
     csv_file : str
@@ -174,12 +182,18 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None, graph_types=None
         "BA": "tab:purple",
     }
 
+    report_thresholds = [0.95, 0.8]
+
     n_plots = len(y_col_nums)
+
+    y_size_factor = 1.5
+    if n_plots == 1:
+        y_size_factor = 2.0
 
     fig, axes = plt.subplots(
         n_plots,
         1,
-        figsize=(3, 1.5 * n_plots),
+        figsize=(3, y_size_factor * n_plots),
         sharex=True,
     )
 
@@ -194,17 +208,44 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None, graph_types=None
         print(f"\nSelected y-column number: {y_col_num}")
         print(f"Selected graph_type filter: {sorted(graph_types)}")
 
+        column_x_values_below_threshold = {
+            threshold: [] for threshold in report_thresholds
+        }
+
+        ylabel = None
+
         for graph_type in sorted(graph_types):
             x_vals, y_vals_raw, y_vals_abs, ylabel = extract_column_data(
                 csv_file,
                 y_col_num,
                 graph_types=[graph_type],
             )
-            legend_label = graph_type.replace('connected_', '')
+
+            legend_label = graph_type.replace("connected_", "")
 
             print(f"\nGraph type: {graph_type}")
             print("First 10 raw values of chosen y-column:")
             print(y_vals_raw[:10])
+
+            for threshold in report_thresholds:
+                below_threshold_mask = y_vals_abs < threshold
+                x_vals_below_threshold = x_vals[below_threshold_mask]
+
+                if len(x_vals_below_threshold) > 0:
+                    max_x_below_threshold = np.max(x_vals_below_threshold)
+
+                    column_x_values_below_threshold[threshold].append(
+                        max_x_below_threshold
+                    )
+
+                    print(
+                        f"Maximum x-axis value with |coefficient| < "
+                        f"{threshold}: {max_x_below_threshold}"
+                    )
+                else:
+                    print(
+                        f"No points found with |coefficient| < {threshold}"
+                    )
 
             scatter = ax.scatter(
                 x_vals,
@@ -220,8 +261,24 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None, graph_types=None
                 legend_handles.append(scatter)
                 legend_labels.append(legend_label)
 
+        print(f"\nOverall summary for y-column {y_col_num}:")
+        for threshold in report_thresholds:
+            if len(column_x_values_below_threshold[threshold]) > 0:
+                overall_max_x = np.max(
+                    column_x_values_below_threshold[threshold]
+                )
+
+                print(
+                    f"Overall maximum x-axis value with |coefficient| < "
+                    f"{threshold}: {overall_max_x}"
+                )
+            else:
+                print(
+                    f"Overall: no points found with |coefficient| < {threshold}"
+                )
+
         # Horizontal reference lines
-        line_095 = ax.axhline(
+        ax.axhline(
             0.95,
             color="green",
             linestyle="--",
@@ -229,18 +286,13 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None, graph_types=None
             label="0.95",
         )
 
-        line_08 = ax.axhline(
+        ax.axhline(
             0.8,
             color="red",
             linestyle="--",
             linewidth=1,
             label="0.8",
         )
-
-        # # Add threshold legend entries only once
-        # if ax_idx == 0:
-        #     legend_handles.extend([line_095, line_08])
-        #     legend_labels.extend(["0.95", "0.8"])
 
         ax.set_ylabel(ylabel)
 

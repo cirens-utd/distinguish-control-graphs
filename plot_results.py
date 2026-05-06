@@ -6,6 +6,38 @@ import matplotlib.pyplot as plt
 
 CSV_FILE = "controlled_density_edge_flip_results.csv"
 X_COL_NUM = 14  # 1-based column number for density_delta_from_avg
+GRAPH_TYPE_COL_NUM = 3  # 1-based column number for graph_type
+ALLOWED_GRAPH_TYPES = {"connected_ER", "connected_RG", "BA"}
+
+
+def validate_graph_types(graph_types):
+    """
+    Validate requested graph types.
+
+    Parameters
+    ----------
+    graph_types : list[str] or None
+        Requested graph types. If None, all allowed graph types are used.
+
+    Returns
+    -------
+    set[str]
+        Set of graph types to include.
+    """
+    if graph_types is None:
+        return ALLOWED_GRAPH_TYPES
+
+    graph_types = set(graph_types)
+    invalid_graph_types = graph_types - ALLOWED_GRAPH_TYPES
+
+    if invalid_graph_types:
+        raise ValueError(
+            "Invalid graph_type value(s): "
+            f"{sorted(invalid_graph_types)}. "
+            f"Allowed values are: {sorted(ALLOWED_GRAPH_TYPES)}"
+        )
+
+    return graph_types
 
 
 def clean_latex_label(label):
@@ -114,12 +146,11 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None):
     fig, axes = plt.subplots(
         n_plots,
         1,
-        figsize=(7, 3 * n_plots),
+        figsize=(3, 2.1 * n_plots),
         sharex=True,
     )
 
-    # If there is only one subplot, axes is not returned as a list/array.
-    # Convert it to a list for consistent indexing.
+    # Ensure axes is iterable for single-plot case
     if n_plots == 1:
         axes = [axes]
 
@@ -135,15 +166,19 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None):
         ax.scatter(
             x_vals,
             y_vals_abs,
+            s=7,
             label=legend_label,
         )
 
-        ax.set_ylabel("Coefficient value")
+        # Horizontal reference lines
+        ax.axhline(0.95, color="green", linestyle="--", linewidth=1, label="0.95")
+        ax.axhline(0.8, color="red", linestyle="--", linewidth=1, label="0.8")
+
+        ax.set_ylabel(legend_label)
         ax.legend()
 
     axes[-1].set_xlabel("Density range")
 
-    # plt.suptitle("Coefficient values vs density_delta_from_avg")
     plt.tight_layout()
 
     if save_filename:

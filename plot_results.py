@@ -147,6 +147,7 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None, graph_types=None
     Rows can be filtered by graph_type.
 
     Different graph types are shown using different marker shapes and colors.
+    Legend entries are shown only once in a single row at the top of all plots.
 
     Parameters
     ----------
@@ -186,61 +187,80 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None, graph_types=None
     if n_plots == 1:
         axes = [axes]
 
-    for ax, y_col_num in zip(axes, y_col_nums):
+    legend_handles = []
+    legend_labels = []
+
+    for ax_idx, (ax, y_col_num) in enumerate(zip(axes, y_col_nums)):
         print(f"\nSelected y-column number: {y_col_num}")
         print(f"Selected graph_type filter: {sorted(graph_types)}")
 
-        ylabel = None
-
         for graph_type in sorted(graph_types):
-            x_vals, y_vals_raw, y_vals_abs, legend_label = extract_column_data(
+            x_vals, y_vals_raw, y_vals_abs, ylabel = extract_column_data(
                 csv_file,
                 y_col_num,
                 graph_types=[graph_type],
             )
-
-            if ylabel is None:
-                ylabel = legend_label
+            legend_label = graph_type.replace('connected_', '')
 
             print(f"\nGraph type: {graph_type}")
             print("First 10 raw values of chosen y-column:")
             print(y_vals_raw[:10])
 
-            ax.scatter(
+            scatter = ax.scatter(
                 x_vals,
                 y_vals_abs,
                 s=7,
                 marker=graph_type_markers[graph_type],
                 color=graph_type_colors[graph_type],
-                label=graph_type.replace('connected_', ''),
+                label=legend_label,
             )
 
+            # Add graph type legend entries only once
+            if ax_idx == 0:
+                legend_handles.append(scatter)
+                legend_labels.append(legend_label)
+
         # Horizontal reference lines
-        ax.axhline(
+        line_095 = ax.axhline(
             0.95,
             color="green",
             linestyle="--",
             linewidth=1,
-            # label="0.95",
+            label="0.95",
         )
 
-        ax.axhline(
+        line_08 = ax.axhline(
             0.8,
             color="red",
             linestyle="--",
             linewidth=1,
-            # label="0.8",
+            label="0.8",
         )
 
+        # # Add threshold legend entries only once
+        # if ax_idx == 0:
+        #     legend_handles.extend([line_095, line_08])
+        #     legend_labels.extend(["0.95", "0.8"])
+
         ax.set_ylabel(ylabel)
-        ax.legend(fontsize="small")
 
     axes[-1].set_xlabel("Density range")
 
-    plt.tight_layout()
+    # One shared legend in a single row at the top of all plots
+    fig.legend(
+        legend_handles,
+        legend_labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=len(legend_labels),
+        fontsize="small",
+        frameon=False,
+    )
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
 
     if save_filename:
-        plt.savefig(save_filename, dpi=300)
+        plt.savefig(save_filename, dpi=300, bbox_inches="tight")
         print(f"\nSaved plot to: {save_filename}")
 
     plt.show()

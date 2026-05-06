@@ -94,10 +94,11 @@ def extract_column_data(csv_file, y_col_num):
     )
 
 
-
 def make_scatter_plot(csv_file, y_col_nums, save_filename=None):
     """
-    Make one scatter plot containing multiple selected y-columns.
+    Make scatter plots for multiple selected y-columns.
+
+    Each selected column is plotted in a separate subplot row.
 
     Parameters
     ----------
@@ -108,9 +109,21 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None):
     save_filename : str or None
         If provided, save the figure to this filename.
     """
-    plt.figure()
+    n_plots = len(y_col_nums)
 
-    for y_col_num in y_col_nums:
+    fig, axes = plt.subplots(
+        n_plots,
+        1,
+        figsize=(7, 3 * n_plots),
+        sharex=True,
+    )
+
+    # If there is only one subplot, axes is not returned as a list/array.
+    # Convert it to a list for consistent indexing.
+    if n_plots == 1:
+        axes = [axes]
+
+    for ax, y_col_num in zip(axes, y_col_nums):
         x_vals, y_vals_raw, y_vals_abs, legend_label = extract_column_data(
             csv_file, y_col_num
         )
@@ -119,16 +132,18 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None):
         print("First 10 raw values of chosen y-column:")
         print(y_vals_raw[:10])
 
-        plt.scatter(
+        ax.scatter(
             x_vals,
             y_vals_abs,
             label=legend_label,
         )
 
-    plt.xlabel("Density range")
-    plt.ylabel("Coefficient value")
-    # plt.title("Coefficient values vs density_delta_from_avg")
-    plt.legend()
+        ax.set_ylabel("Coefficient value")
+        ax.legend()
+
+    axes[-1].set_xlabel("Density range")
+
+    # plt.suptitle("Coefficient values vs density_delta_from_avg")
     plt.tight_layout()
 
     if save_filename:

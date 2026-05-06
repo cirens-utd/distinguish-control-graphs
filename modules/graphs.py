@@ -574,7 +574,8 @@ def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency
         if input is not None:
             options = {'input': input}
             B = get_input(G, options)
-            A = finite_time_gramian(A, B, t=1)
+            # A = finite_time_gramian(A, B, t=1)
+            A = finite_horizon_gramian_through_integration(A, B, t_total=1.0)
         graph_matrices.append(A)
         eigvals, _ = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(A)
         eigvals_list.append(eigvals)

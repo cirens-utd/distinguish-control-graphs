@@ -125,10 +125,8 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
             else:
                 y4 = [item[1][options['third_plot']] for item in sorted_data_asc]
                 label = options['third_plot']
-            all_corr_coef_scores[(plot['y1'], options['third_plot'])] = {'$\\rho_S$': scipy.stats.spearmanr(y1, y4).statistic,
-                                                                       '$\\tau_K$': scipy.stats.kendalltau(y1, y4).statistic}
-            all_corr_coef_scores[(plot[axis], options['third_plot'])] = {'$\\rho_S$': scipy.stats.spearmanr(quantity, y4).statistic,
-                                                                       '$\\tau_K$': scipy.stats.kendalltau(quantity, y4).statistic}
+            all_corr_coef_scores[(plot['y1'], options['third_plot'])] = get_stats_for_two_vars(y1, y4, ['spearmanr', 'kendalltau'])
+            all_corr_coef_scores[(plot[axis], options['third_plot'])] = get_stats_for_two_vars(quantity, y4, ['spearmanr', 'kendalltau'])
             ymin_ax2, ymax_ax2 = ax2.get_ylim()
             if np.max(y4) != np.min(y4):
                 y4_scaled = ymin_ax2 + (y4 - np.min(y4)) * (ymax_ax2 - ymin_ax2) / (np.max(y4) - np.min(y4))
@@ -137,8 +135,8 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
             ax2.plot(x, y4_scaled, marker="o", linestyle="--", color="C2", label=label)
             ax2.legend(loc="upper right")
         
-        coefficients_in_title = f'Spearman rank coefficient: {spearman_coef:.2g}\n' + \
-                                f'Kendall rank coefficient: {kendalltau_coef:.2g}'
+        coefficients_in_title = f'Spearman rank coefficient: {corr_coef_scores[0]:.2g}\n' + \
+                                f'Kendall rank coefficient: {corr_coef_scores[1]:.2g}'
         if options['label_figure_for_paper']:
             title = coefficients_in_title
         elif options['label_figure_for_paper_with_graph_info']:
@@ -193,7 +191,11 @@ def compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_cor
         f.write(f"{density_std:.3g}, ")
         f.write(f"{options['input']}, ")
         f.write(f"{options['edge_score_choice']}, ")
-        f.write(f"[{min_density_avg:.3g} ± {min_density_std:.3g}, {max_density_avg:.3g} ± {max_density_std:.3g}], ")
+        f.write(f"{min_density_avg:.3g}, ")
+        f.write(f"{min_density_std:.3g}, ")
+        f.write(f"{max_density_avg:.3g}, ")
+        f.write(f"{max_density_std:.3g}, ")
+        f.write(f"{max_density_avg - min_density_avg:.3g}, ")
         f.write(f" {options['fraction_of_removals_in_randomly_flipped_edges']}, ")
     
     for quantity_pair in corr_coef_scores_avg.keys():

@@ -176,6 +176,7 @@ def make_scatter_plot(
     save_filename=None,
     filter_by="graph_type",
     filter_values=None,
+    thresholds=None,
 ):
     """
     Make scatter plots for multiple selected y-columns.
@@ -189,8 +190,11 @@ def make_scatter_plot(
 
     Legend entries are shown only once in a single row at the top of all plots.
 
-    For each selected column, this function reports the maximum x-axis value
-    for which the absolute coefficient value is below the 0.95 and 0.8 lines.
+    For each selected column, filter value, and threshold, this function finds
+    the plotted data point with the maximum x-axis value among points whose
+    absolute coefficient value is below the threshold. It then draws a vertical
+    dashed line at that x-axis value using the same color as the corresponding
+    filter's scatter plot.
 
     Parameters
     ----------
@@ -205,8 +209,18 @@ def make_scatter_plot(
     filter_values : list[str], set[str], or None
         Values to include for the chosen filter. If None, all valid values
         for filter_by are included.
+    thresholds : list[float], tuple[float], or None
+        Thresholds used to draw vertical reference lines. For each filter value
+        and threshold, a line is drawn at the maximum x-value among plotted data
+        points whose absolute coefficient value is below the threshold. If None,
+        defaults to [0.95, 0.8].
     """
     filter_values = validate_filter_values(filter_by, filter_values)
+    if thresholds is None:
+        thresholds = [0.95, 0.8]
+    thresholds = [float(threshold) for threshold in thresholds]
+    if not thresholds:
+        raise ValueError("At least one threshold must be provided.")
 
     graph_type_markers = {
         "connected_ER": "o",
@@ -242,8 +256,6 @@ def make_scatter_plot(
             "Allowed values are: graph_type, system_matrix_type"
         )
 
-    report_thresholds = [0.95, 0.8]
-
     n_plots = len(y_col_nums)
 
     y_size_factor = 1.5
@@ -268,9 +280,10 @@ def make_scatter_plot(
         print(f"\nSelected y-column number: {y_col_num}")
         print(f"Selected filter mode: {filter_by}")
         print(f"Selected {filter_by} filter: {sorted(filter_values)}")
+        print(f"Selected threshold(s): {thresholds}")
 
-        column_x_values_below_threshold = {
-            threshold: [] for threshold in report_thresholds
+        column_max_x_values_below_threshold = {
+            threshold: [] for threshold in thresholds
         }
 
         ylabel = None
@@ -292,20 +305,24 @@ def make_scatter_plot(
             print("First 10 raw values of chosen y-column:")
             print(y_vals_raw[:10])
 
-            for threshold in report_thresholds:
+            for threshold in thresholds:
                 below_threshold_mask = y_vals_abs < threshold
                 x_vals_below_threshold = x_vals[below_threshold_mask]
 
                 if len(x_vals_below_threshold) > 0:
                     max_x_below_threshold = np.max(x_vals_below_threshold)
-
-                    column_x_values_below_threshold[threshold].append(
+                    column_max_x_values_below_threshold[threshold].append(
                         max_x_below_threshold
                     )
-
                     print(
                         f"Maximum x-axis value with coefficient < "
                         f"{threshold}: {max_x_below_threshold}"
+                    )
+                    ax.axvline(
+                        max_x_below_threshold,
+                        color=filter_colors[filter_value],
+                        linestyle="--",
+                        linewidth=1,
                     )
                 else:
                     print(f"No points found with coefficient < {threshold}")
@@ -325,12 +342,11 @@ def make_scatter_plot(
                 legend_labels.append(legend_label)
 
         print(f"\nOverall summary for y-column {y_col_num}:")
-        for threshold in report_thresholds:
-            if len(column_x_values_below_threshold[threshold]) > 0:
+        for threshold in thresholds:
+            if len(column_max_x_values_below_threshold[threshold]) > 0:
                 overall_max_x = np.max(
-                    column_x_values_below_threshold[threshold]
+                    column_max_x_values_below_threshold[threshold]
                 )
-
                 print(
                     f"Overall maximum x-axis value with coefficient < "
                     f"{threshold}: {overall_max_x}"
@@ -339,23 +355,6 @@ def make_scatter_plot(
                 print(
                     f"Overall: no points found with coefficient < {threshold}"
                 )
-
-        # Horizontal reference lines
-        ax.axhline(
-            0.95,
-            color="green",
-            linestyle="--",
-            linewidth=1,
-            label="0.95",
-        )
-
-        ax.axhline(
-            0.8,
-            color="red",
-            linestyle="--",
-            linewidth=1,
-            label="0.8",
-        )
 
         ax.set_ylabel(ylabel)
 
@@ -379,7 +378,6 @@ def make_scatter_plot(
         print(f"\nSaved plot to: {save_filename}")
 
     plt.show()
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -430,6 +428,19 @@ if __name__ == "__main__":
         ),
     )
 
+    parser.add_argument(
+        "--thresholds",
+        nargs="+",
+        type=float,
+        default=[0.95, 0.8],
+        help=(
+            "Threshold(s) for vertical reference lines. For each filter value "
+            "and threshold, a line is drawn at the maximum x-value among plotted "
+            "data points whose absolute y-value is below the threshold. "
+            "Default: 0.95 0.8."
+        ),
+    )
+
     args = parser.parse_args()
 
     if args.graph_type is not None and args.system_matrix_type is not None:
@@ -450,4 +461,5 @@ if __name__ == "__main__":
         save_filename=args.save_name,
         filter_by=filter_by,
         filter_values=filter_values,
+        thresholds=args.thresholds,
     )

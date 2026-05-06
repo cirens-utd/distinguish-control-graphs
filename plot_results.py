@@ -53,10 +53,11 @@ def clean_latex_label(label):
     return rf"$|{label}|$"
 
 
-
-def extract_column_data(csv_file, y_col_num):
+def extract_column_data(csv_file, y_col_num, graph_types=None):
     """
     Extract x = 14th column and y = user-selected column.
+
+    Rows are filtered by graph_type from column 3.
 
     Parameters
     ----------
@@ -64,6 +65,8 @@ def extract_column_data(csv_file, y_col_num):
         Path to CSV file.
     y_col_num : int
         1-based column number to plot on y-axis.
+    graph_types : list[str], set[str], or None
+        Graph types to include. If None, all allowed graph types are included.
 
     Returns
     -------
@@ -77,6 +80,7 @@ def extract_column_data(csv_file, y_col_num):
         Matplotlib legend label based on previous column label.
     """
     x_idx = X_COL_NUM - 1
+    graph_type_idx = GRAPH_TYPE_COL_NUM - 1
     y_idx = y_col_num - 1
     label_idx = y_idx - 1
 
@@ -94,7 +98,12 @@ def extract_column_data(csv_file, y_col_num):
         reader = csv.reader(f)
 
         for row in reader:
-            if len(row) <= max(x_idx, y_idx, label_idx):
+            if len(row) <= max(x_idx, graph_type_idx, y_idx, label_idx):
+                continue
+
+            graph_type = row[graph_type_idx].strip()
+
+            if graph_type not in graph_types:
                 continue
 
             try:
@@ -110,11 +119,15 @@ def extract_column_data(csv_file, y_col_num):
 
     if not x_vals:
         raise ValueError(
-            f"No numeric data found for y-column {y_col_num}. "
-            "Check that the chosen column is a numeric quantity column."
+            f"No numeric data found for y-column {y_col_num} "
+            f"and graph_type filter {sorted(graph_types)}. "
+            "Check that the chosen column is numeric and that matching rows exist."
         )
     else:
-        print(f"Found {len(x_vals)} data points for column {y_col_num}.")
+        print(
+            f"Found {len(x_vals)} data points for column {y_col_num} "
+            f"with graph_type filter {sorted(graph_types)}."
+        )
 
     legend_label = clean_latex_label(labels[0])
 
@@ -126,11 +139,12 @@ def extract_column_data(csv_file, y_col_num):
     )
 
 
-def make_scatter_plot(csv_file, y_col_nums, save_filename=None):
+def make_scatter_plot(csv_file, y_col_nums, save_filename=None, graph_types=None):
     """
     Make scatter plots for multiple selected y-columns.
 
     Each selected column is plotted in a separate subplot row.
+    Rows can be filtered by graph_type.
 
     Parameters
     ----------
@@ -140,13 +154,17 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None):
         1-based column numbers to plot.
     save_filename : str or None
         If provided, save the figure to this filename.
+    graph_types : list[str], set[str], or None
+        Graph types to include. If None, all allowed graph types are included.
     """
+    graph_types = validate_graph_types(graph_types)
+
     n_plots = len(y_col_nums)
 
     fig, axes = plt.subplots(
         n_plots,
         1,
-        figsize=(3, 2.1 * n_plots),
+        figsize=(3, 1.5 * n_plots),
         sharex=True,
     )
 
@@ -156,10 +174,13 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None):
 
     for ax, y_col_num in zip(axes, y_col_nums):
         x_vals, y_vals_raw, y_vals_abs, legend_label = extract_column_data(
-            csv_file, y_col_num
+            csv_file,
+            y_col_num,
+            graph_types=graph_types,
         )
 
         print(f"\nSelected y-column number: {y_col_num}")
+        print(f"Selected graph_type filter: {sorted(graph_types)}")
         print("First 10 raw values of chosen y-column:")
         print(y_vals_raw[:10])
 
@@ -175,7 +196,7 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None):
         ax.axhline(0.8, color="red", linestyle="--", linewidth=1, label="0.8")
 
         ax.set_ylabel(legend_label)
-        ax.legend()
+        # ax.legend()
 
     axes[-1].set_xlabel("Density range")
 
@@ -213,10 +234,23 @@ if __name__ == "__main__":
         help="Filename to save the plot as a PNG file.",
     )
 
+    parser.add_argument(
+        "--graph_type",
+        nargs="+",
+        choices=sorted(ALLOWED_GRAPH_TYPES),
+        default=None,
+        help=(
+            "Graph type(s) to include. "
+            "Allowed values: connected_ER, connected_RG, BA. "
+            "Default: include all graph types."
+        ),
+    )
+
     args = parser.parse_args()
 
     make_scatter_plot(
         args.csv,
         args.y_col_nums,
         save_filename=args.save_name,
+        graph_types=args.graph_type,
     )

@@ -146,6 +146,8 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None, graph_types=None
     Each selected column is plotted in a separate subplot row.
     Rows can be filtered by graph_type.
 
+    Different graph types are shown using different marker shapes and colors.
+
     Parameters
     ----------
     csv_file : str
@@ -159,6 +161,18 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None, graph_types=None
     """
     graph_types = validate_graph_types(graph_types)
 
+    graph_type_markers = {
+        "connected_ER": "o",
+        "connected_RG": "s",
+        "BA": "^",
+    }
+
+    graph_type_colors = {
+        "connected_ER": "tab:blue",
+        "connected_RG": "tab:orange",
+        "BA": "tab:purple",
+    }
+
     n_plots = len(y_col_nums)
 
     fig, axes = plt.subplots(
@@ -168,35 +182,58 @@ def make_scatter_plot(csv_file, y_col_nums, save_filename=None, graph_types=None
         sharex=True,
     )
 
-    # Ensure axes is iterable for single-plot case
+    # Ensure axes is iterable for the single-subplot case
     if n_plots == 1:
         axes = [axes]
 
     for ax, y_col_num in zip(axes, y_col_nums):
-        x_vals, y_vals_raw, y_vals_abs, legend_label = extract_column_data(
-            csv_file,
-            y_col_num,
-            graph_types=graph_types,
-        )
-
         print(f"\nSelected y-column number: {y_col_num}")
         print(f"Selected graph_type filter: {sorted(graph_types)}")
-        print("First 10 raw values of chosen y-column:")
-        print(y_vals_raw[:10])
 
-        ax.scatter(
-            x_vals,
-            y_vals_abs,
-            s=7,
-            label=legend_label,
-        )
+        ylabel = None
+
+        for graph_type in sorted(graph_types):
+            x_vals, y_vals_raw, y_vals_abs, legend_label = extract_column_data(
+                csv_file,
+                y_col_num,
+                graph_types=[graph_type],
+            )
+
+            if ylabel is None:
+                ylabel = legend_label
+
+            print(f"\nGraph type: {graph_type}")
+            print("First 10 raw values of chosen y-column:")
+            print(y_vals_raw[:10])
+
+            ax.scatter(
+                x_vals,
+                y_vals_abs,
+                s=7,
+                marker=graph_type_markers[graph_type],
+                color=graph_type_colors[graph_type],
+                label=graph_type.replace('connected_', ''),
+            )
 
         # Horizontal reference lines
-        ax.axhline(0.95, color="green", linestyle="--", linewidth=1, label="0.95")
-        ax.axhline(0.8, color="red", linestyle="--", linewidth=1, label="0.8")
+        ax.axhline(
+            0.95,
+            color="green",
+            linestyle="--",
+            linewidth=1,
+            # label="0.95",
+        )
 
-        ax.set_ylabel(legend_label)
-        # ax.legend()
+        ax.axhline(
+            0.8,
+            color="red",
+            linestyle="--",
+            linewidth=1,
+            # label="0.8",
+        )
+
+        ax.set_ylabel(ylabel)
+        ax.legend(fontsize="small")
 
     axes[-1].set_xlabel("Density range")
 

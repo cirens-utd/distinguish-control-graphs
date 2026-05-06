@@ -21,6 +21,7 @@ def clean_latex_label(label):
     return rf"$|{label}|$"
 
 
+
 def extract_column_data(csv_file, y_col_num):
     """
     Extract x = 14th column and y = user-selected column.
@@ -40,15 +41,18 @@ def extract_column_data(csv_file, y_col_num):
         Raw y-values from selected column.
     y_vals_abs : np.ndarray
         Absolute y-values for plotting.
-    ylabel : str
-        Matplotlib ylabel based on previous column label.
+    legend_label : str
+        Matplotlib legend label based on previous column label.
     """
     x_idx = X_COL_NUM - 1
     y_idx = y_col_num - 1
     label_idx = y_idx - 1
 
     if y_col_num <= 1:
-        raise ValueError("y_col_num must be greater than 1 because the ylabel is taken from the previous column.")
+        raise ValueError(
+            "y_col_num must be greater than 1 because the legend label "
+            "is taken from the previous column."
+        )
 
     x_vals = []
     y_vals_raw = []
@@ -78,33 +82,53 @@ def extract_column_data(csv_file, y_col_num):
             "Check that the chosen column is a numeric quantity column."
         )
     else:
-        print(f"Found {len(x_vals)} data points.")
+        print(f"Found {len(x_vals)} data points for column {y_col_num}.")
 
-    ylabel = clean_latex_label(labels[0])
+    legend_label = clean_latex_label(labels[0])
 
     return (
         np.asarray(x_vals, dtype=float),
         np.asarray(y_vals_raw, dtype=float),
         np.abs(np.asarray(y_vals_raw, dtype=float)),
-        ylabel,
+        legend_label,
     )
 
 
-def make_scatter_plot(csv_file, y_col_num, save_filename=None):
-    x_vals, y_vals_raw, y_vals_abs, ylabel = extract_column_data(csv_file, y_col_num)
 
-    print(f"Selected y-column number: {y_col_num}")
-    print("First 10 raw values of chosen y-column:")
-    print(y_vals_raw[:10])
+def make_scatter_plot(csv_file, y_col_nums, save_filename=None):
+    """
+    Make one scatter plot containing multiple selected y-columns.
 
-    # print("\nFirst 10 absolute values used for plotting:")
-    # print(y_vals_abs[:10])
-
+    Parameters
+    ----------
+    csv_file : str
+        Path to CSV file.
+    y_col_nums : list[int]
+        1-based column numbers to plot.
+    save_filename : str or None
+        If provided, save the figure to this filename.
+    """
     plt.figure()
-    plt.scatter(x_vals, y_vals_abs)
-    plt.xlabel("density_delta_from_avg")
-    plt.ylabel(ylabel)
-    plt.title(f"{ylabel}")
+
+    for y_col_num in y_col_nums:
+        x_vals, y_vals_raw, y_vals_abs, legend_label = extract_column_data(
+            csv_file, y_col_num
+        )
+
+        print(f"\nSelected y-column number: {y_col_num}")
+        print("First 10 raw values of chosen y-column:")
+        print(y_vals_raw[:10])
+
+        plt.scatter(
+            x_vals,
+            y_vals_abs,
+            label=legend_label,
+        )
+
+    plt.xlabel("Density range")
+    plt.ylabel("Coefficient value")
+    # plt.title("Coefficient values vs density_delta_from_avg")
+    plt.legend()
     plt.tight_layout()
 
     if save_filename:
@@ -116,18 +140,22 @@ def make_scatter_plot(csv_file, y_col_num, save_filename=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Plot abs(selected CSV column) vs density_delta_from_avg."
+        description="Plot abs(selected CSV columns) vs density_delta_from_avg."
     )
+
     parser.add_argument(
-        "y_col_num",
+        "y_col_nums",
         type=int,
-        help="1-based column number to plot on the y-axis.",
+        nargs="+",
+        help="1-based column numbers to plot on the y-axis.",
     )
+
     parser.add_argument(
         "--csv",
         default=CSV_FILE,
         help=f"CSV filename. Default: {CSV_FILE}",
     )
+
     parser.add_argument(
         "--save_name",
         type=str,
@@ -136,4 +164,9 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    make_scatter_plot(args.csv, args.y_col_num, save_filename=args.save_name)
+
+    make_scatter_plot(
+        args.csv,
+        args.y_col_nums,
+        save_filename=args.save_name,
+    )

@@ -114,7 +114,7 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
 
         y2_label = adjust_ylabel_for_paper(plot['y2'], options)
         ax2 = ax1.twinx()
-        ax2.plot(x, y2, marker="s", linestyle="--", color="C1", label=y2_label)
+        ax2.plot(x, y2, marker="s", linestyle="--", color="C1")#, label=y2_label)
         ax2.set_ylabel(y2_label, color="C1")
         ax2.tick_params(axis="y", labelcolor="C1")
         
@@ -282,7 +282,7 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
             else:
                 label = f"Multiple edges flipped. X-axis is the number of the experiment."
         else:
-            label = f"Experiments sorted by change in {sort_by}"
+            label = f"Perturbations sorted by change in {sort_by}"
         if options.get('only_add_edges', False):
             label += " (only added edges)"
         elif options.get('only_remove_edges', False):

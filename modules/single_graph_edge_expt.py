@@ -224,6 +224,9 @@ def compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_cor
                 f.write(f"\" {quantity_pair}\", ")
                 for metric in corr_coef_scores_avg[quantity_pair].keys():
                     f.write(f"{metric}, {corr_coef_scores_avg[quantity_pair][metric]:.3g}, {corr_coef_scores_std[quantity_pair][metric]:.3g}, ")
+                
+        if results_file is not None:
+            f.write("\n")
     else:
 
         if results_file is not None:
@@ -260,7 +263,6 @@ def compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_cor
                 f.write("\n")
         
     if results_file is not None:
-        f.write("\n")
         f.close()
     
     if options['average_over_all_graphs']:
@@ -293,6 +295,7 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
     options['graph_metrics']['min_density'] = []
     options['graph_metrics']['max_density'] = []
     for idx, graph in enumerate(tqdm(graphs, desc="Processing graphs")):
+    # for idx, graph in enumerate(graphs):
         ax1 = axes[0, idx]
         temp_options = deepcopy(options)
         temp_options['graph'] = graph

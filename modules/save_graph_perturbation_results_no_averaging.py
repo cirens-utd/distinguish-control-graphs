@@ -3,9 +3,12 @@ import os
 from os.path import abspath
 sys.path.insert(0, os.path.join(abspath(os.getcwd()), 'modules'))
 
+import argparse
+
 from single_graph_edge_expt import graph_edge_toggling_expt_using_given_graphs_and_scoring_choice
 from graphs import get_graph
 import numpy as np
+from tqdm import tqdm
 
 matrix_choices = ['adjacency', 'neg_laplacian']
 input_choices = ['all_ones', 'identity', 'zfs', 'zfs_transf', 'zfs_new']
@@ -24,9 +27,16 @@ graph_choice_sets = [[{'type': 'connected_ER', 'n': 20, 'p': 0.3},
 list_of_graph_lists = [[[get_graph(graph_choice=choice) for _ in range(n_graphs)] for choice in graph_choice_set] for graph_choice_set in graph_choice_sets]
 
 
+parser = argparse.ArgumentParser(description="Process t_horizon argument.")
+parser.add_argument('--t_horizon', type=float, default=None, help='The time horizon')
+
+args = parser.parse_args()
+
 # controlled-density perturbations
 fractions_of_removals_in_randomly_flipped_edges = np.linspace(0, 1, 21)
+# for t_horizon in [0.01, 0.1, 1, 10]:
 for fraction in fractions_of_removals_in_randomly_flipped_edges:
+    print(f"Running for t_horizon {args.t_horizon} and fraction_of_removal {fraction}...")
     for graph_choices_set, graphs in zip(graph_choice_sets, list_of_graph_lists):
         graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices_set, graphs,
             matrix_choices=matrix_choices, input_choices=input_choices,
@@ -37,4 +47,4 @@ for fraction in fractions_of_removals_in_randomly_flipped_edges:
             other_pairs_of_quantities_to_plot=[
                 {'y1': 'sys_mat_spec_dist', 'y2': 'Wc_spec_dist'},
                 {'y1': 'density', 'y2': 'Wc_spec_dist'}],
-            t_horizon=1, average_over_all_graphs=False)
+            t_horizon=args.t_horizon, average_over_all_graphs=False)

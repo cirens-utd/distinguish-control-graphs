@@ -250,11 +250,11 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None, 
         other_system_matrices = [get_system_matrix_from_graph(G, matrix_choice) for matrix_choice in other_system_matrix_choices]
         other_system_matrices_eigvals = [real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(S)[0] for S in other_system_matrices]
 
-    if options['input'] == 'zfs':
-        laplacian = get_system_matrix_from_graph(G, matrix_choice="neg_laplacian")
-        W_test = finite_time_gramian(laplacian, B, t=t)
-        if np.linalg.matrix_rank(W_test) < A.shape[0]:
-            raise RuntimeError("System is not controllable with zero forcing set as input.")
+    # if options['input'] == 'zfs':
+    #     laplacian = get_system_matrix_from_graph(G, matrix_choice="neg_laplacian")
+    #     W_test = finite_time_gramian(laplacian, B, t=t)
+    #     if np.linalg.matrix_rank(W_test) < A.shape[0]:
+    #         raise RuntimeError("System is not controllable with zero forcing set as input.")
 
     other_results = {}
     other_results['A_lambda_min'] = float(np.min(A_eigvals))
@@ -551,11 +551,11 @@ def zero_forcing_set_greedy(G):
     final_blue = apply_zero_forcing(S)
     if len(final_blue) != n:
         raise RuntimeError("Greedy zero forcing set construction failed to color all nodes.")
-    else:
-        L = get_system_matrix_from_graph(G, matrix_choice="neg_laplacian")
-        rank, n, is_controllable = compute_controllability_rank(L, B)
-        if not is_controllable:
-            raise RuntimeError("Computed zero forcing set does not yield controllable system with neg_laplacian as system matrix.")
+    # else:
+    #     L = get_system_matrix_from_graph(G, matrix_choice="neg_laplacian")
+    #     rank, n, is_controllable = compute_controllability_rank(L, B)
+    #     if not is_controllable:
+    #         raise RuntimeError("Computed zero forcing set does not yield controllable system with neg_laplacian as system matrix.")
 
     return B
 

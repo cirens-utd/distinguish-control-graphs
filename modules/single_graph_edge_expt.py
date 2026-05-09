@@ -349,9 +349,9 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
             for edge_score_choice in edge_score_choices:
                 for gramian_choice in gramian_choices:
                     options['gramian_choice'] = gramian_choice
-                    if (matrix_choice == 'neg_laplacian' or matrix_choice == 'laplacian') and input_choice == 'all_ones':
-                        # neg_laplacian with all-ones input results in a trivial all-ones gramian.
-                        continue
+                    # if (matrix_choice == 'neg_laplacian' or matrix_choice == 'laplacian') and input_choice == 'all_ones':
+                    #     # neg_laplacian with all-ones input results in a trivial all-ones gramian.
+                    #     continue
                     if gramian_choice == 'pseudo_infinite_continuous' and \
                         matrix_choice in ['adjacency', 'normalized_laplacian', 'distance_normalized_laplacian',
                                 'signless_laplacian']:

@@ -548,14 +548,14 @@ def zero_forcing_set_greedy(G):
     for col_idx, node in enumerate(sorted(S)):
         B[node, col_idx] = 1
 
-    # final_blue = apply_zero_forcing(S)
-    # if len(final_blue) != n:
-    #     raise RuntimeError("Greedy zero forcing set construction failed to color all nodes.")
-    # else:
-    #     L = get_system_matrix_from_graph(G, matrix_choice="neg_laplacian")
-    #     rank, n, is_controllable = compute_controllability_rank(L, B)
-    #     if not is_controllable:
-    #         raise RuntimeError("Computed zero forcing set does not yield controllable system with neg_laplacian as system matrix.")
+    final_blue = apply_zero_forcing(S)
+    if len(final_blue) != n:
+        raise RuntimeError("Greedy zero forcing set construction failed to color all nodes.")
+    else:
+        L = get_system_matrix_from_graph(G, matrix_choice="neg_laplacian")
+        rank, n, is_controllable = compute_controllability_rank(L, B)
+        if not is_controllable:
+            raise RuntimeError("Computed zero forcing set does not yield controllable system with neg_laplacian as system matrix.")
 
     return B
 

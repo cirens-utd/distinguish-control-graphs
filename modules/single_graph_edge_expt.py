@@ -176,58 +176,97 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
 
 def compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_corr_coef_score_results_for_all_graphs, options):
     results_file = options['results_file']
-    corr_coef_scores_avg = deepcopy(all_corr_coef_score_results_for_all_graphs[0])
-    corr_coef_scores_std = deepcopy(all_corr_coef_score_results_for_all_graphs[0])
     densities = options['graph_metrics']['density']
-    density_avg = np.mean(densities)
-    density_std = np.std(densities)
     min_densities = options['graph_metrics']['min_density']
-    min_density_avg = np.mean(min_densities)
-    min_density_std = np.std(min_densities)
     max_densities = options['graph_metrics']['max_density']
-    max_density_avg = np.mean(max_densities)
-    max_density_std = np.std(max_densities)
 
-    if results_file is not None:
-        f = open(results_file, 'a', encoding='utf-8')
-        # format: n_graphs, sys_matrix, graph_type, n_nodes, graph_param, density_avg, density_std, input, edge_score, quantity_pair_in_quotations, metric_1, corr_coef_avg_1, corr_coef_std_1, metric_2, corr_coef_avg_2, corr_coef_std_2
-        f.write(f"{len(options['graphs'])}, ")
-        f.write(f"{options['graph_matrix_choice']}, ")
-        graph_type = options['graph_choices'][0]['type']
-        f.write(f"{graph_type}, ")
-        f.write(f"{options['graph_choices'][0]['n']}, ")
-        param = get_graph_param_from_graph_choice(options['graph_choices'][0])
-        f.write(f"{param}, ")
-        f.write(f"{density_avg:.3g}, ")
-        f.write(f"{density_std:.3g}, ")
-        f.write(f"{options['input']}, ")
-        f.write(f"{options['edge_score_choice']}, ")
-        f.write(f"{min_density_avg:.3g}, ")
-        f.write(f"{min_density_std:.3g}, ")
-        f.write(f"{max_density_avg:.3g}, ")
-        f.write(f"{max_density_std:.3g}, ")
-        f.write(f"{max_density_avg - min_density_avg:.3g}, ")
-        f.write(f" {options['fraction_of_removals_in_randomly_flipped_edges']}, ")
-    
-    for quantity_pair in corr_coef_scores_avg.keys():
-        results_for_this_pair = [all_corr_coef_score_results_for_all_graphs[j][quantity_pair] for j in range(len(all_corr_coef_score_results_for_all_graphs))]
-        corr_coef_scores_avg[quantity_pair] = {}
-        corr_coef_scores_std[quantity_pair] = {}
-        for metric in results_for_this_pair[0].keys():
-            values = [result[metric] for result in results_for_this_pair]
-            corr_coef_scores_avg[quantity_pair][metric] = np.mean(values)
-            corr_coef_scores_std[quantity_pair][metric] = np.std(values)
-        
+    if options['average_over_all_graphs']:
+        corr_coef_scores_avg = deepcopy(all_corr_coef_score_results_for_all_graphs[0])
+        corr_coef_scores_std = deepcopy(all_corr_coef_score_results_for_all_graphs[0])
+        density_avg = np.mean(densities)
+        density_std = np.std(densities)
+        min_density_avg = np.mean(min_densities)
+        min_density_std = np.std(min_densities)
+        max_density_avg = np.mean(max_densities)
+        max_density_std = np.std(max_densities)
+
         if results_file is not None:
-            f.write(f"\" {quantity_pair}\", ")
-            for metric in corr_coef_scores_avg[quantity_pair].keys():
-                f.write(f"{metric}, {corr_coef_scores_avg[quantity_pair][metric]:.3g}, {corr_coef_scores_std[quantity_pair][metric]:.3g}, ")
-    
+            f = open(results_file, 'a', encoding='utf-8')
+            # format: n_graphs, sys_matrix, graph_type, n_nodes, graph_param, density_avg, density_std, input, edge_score, quantity_pair_in_quotations, metric_1, corr_coef_avg_1, corr_coef_std_1, metric_2, corr_coef_avg_2, corr_coef_std_2
+            f.write(f"{len(options['graphs'])}, ")
+            f.write(f"{options['graph_matrix_choice']}, ")
+            graph_type = options['graph_choices'][0]['type']
+            f.write(f"{graph_type}, ")
+            f.write(f"{options['graph_choices'][0]['n']}, ")
+            param = get_graph_param_from_graph_choice(options['graph_choices'][0])
+            f.write(f"{param}, ")
+            f.write(f"{density_avg:.3g}, ")
+            f.write(f"{density_std:.3g}, ")
+            f.write(f"{options['input']}, ")
+            f.write(f"{options['edge_score_choice']}, ")
+            f.write(f"{min_density_avg:.3g}, ")
+            f.write(f"{min_density_std:.3g}, ")
+            f.write(f"{max_density_avg:.3g}, ")
+            f.write(f"{max_density_std:.3g}, ")
+            f.write(f"{max_density_avg - min_density_avg:.3g}, ")
+            f.write(f" {options['fraction_of_removals_in_randomly_flipped_edges']}, ")
+        
+        for quantity_pair in corr_coef_scores_avg.keys():
+            results_for_this_pair = [all_corr_coef_score_results_for_all_graphs[j][quantity_pair] for j in range(len(all_corr_coef_score_results_for_all_graphs))]
+            corr_coef_scores_avg[quantity_pair] = {}
+            corr_coef_scores_std[quantity_pair] = {}
+            for metric in results_for_this_pair[0].keys():
+                values = [result[metric] for result in results_for_this_pair]
+                corr_coef_scores_avg[quantity_pair][metric] = np.mean(values)
+                corr_coef_scores_std[quantity_pair][metric] = np.std(values)
+            
+            if results_file is not None:
+                f.write(f"\" {quantity_pair}\", ")
+                for metric in corr_coef_scores_avg[quantity_pair].keys():
+                    f.write(f"{metric}, {corr_coef_scores_avg[quantity_pair][metric]:.3g}, {corr_coef_scores_std[quantity_pair][metric]:.3g}, ")
+    else:
+
+        if results_file is not None:
+            f = open(results_file, 'a', encoding='utf-8')
+            for idx, (corr_coef_score, density, min_density, max_density) in enumerate(zip(all_corr_coef_score_results_for_all_graphs, densities, min_densities, max_densities)):
+                # format: graph_no, sys_matrix, graph_type, n_nodes, graph_param, density, input, edge_score, min_density, max_density, max_density_diff, fraction_of_removals_in_randomly_flipped_edges, quantity_pair_in_quotations, metric_1, corr_coef_avg_1, metric_2, corr_coef_avg_2
+                f.write(f"{idx}, ")
+                f.write(f"{options['graph_matrix_choice']}, ")
+                graph_type = options['graph_choices'][0]['type']
+                f.write(f"{graph_type}, ")
+                f.write(f"{options['graph_choices'][0]['n']}, ")
+                param = get_graph_param_from_graph_choice(options['graph_choices'][0])
+                f.write(f"{param}, ")
+                f.write(f"{density:.3g}, ")
+                f.write(f"{options['input']}, ")
+                f.write(f"{options['edge_score_choice']}, ")
+                f.write(f"{min_density:.3g}, ")
+                f.write(f"{max_density:.3g}, ")
+                f.write(f"{max_density - min_density:.3g}, ")
+                f.write(f"{options['fraction_of_removals_in_randomly_flipped_edges']}, ")
+            
+                for quantity_pair in corr_coef_score.keys():
+                    if results_file is not None:
+                        f.write(f"\" {quantity_pair}\", ")
+                    results_for_this_pair = corr_coef_score[quantity_pair]
+                    for metric in results_for_this_pair.keys():
+                        # values = [result[metric] for result in results_for_this_pair]
+                        # corr_coef_scores_avg[quantity_pair][metric] = np.mean(values)
+                        # corr_coef_scores_std[quantity_pair][metric] = np.std(values)
+                        if results_file is not None:
+                            # for metric in corr_coef_scores_avg[quantity_pair].keys():
+                            f.write(f"{metric}, {results_for_this_pair[metric]:.3g}, ")
+                
+                f.write("\n")
+        
     if results_file is not None:
         f.write("\n")
         f.close()
     
-    return corr_coef_scores_avg, corr_coef_scores_std
+    if options['average_over_all_graphs']:
+        return (corr_coef_scores_avg, corr_coef_scores_std)
+    else:
+        return None
 
 
 # generate a single ER graph
@@ -320,7 +359,8 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
         plot_single_edge_flip_scores=False, rand_edge_order={}, fig_output_file_name=None,
         results_file=None, other_pairs_of_quantities_to_plot=[], t_horizon_setting_for_ETEC='2n',
         score_order='ascending', sample_multiple_edges_uniformly_num_trials=None,
-        fraction_of_removals_in_randomly_flipped_edges=None, plot_against_density=True):
+        fraction_of_removals_in_randomly_flipped_edges=None, plot_against_density=True,
+        average_over_all_graphs=True):
     
     options = {'graph_choices': graph_choices,
                'graphs': graphs,
@@ -339,7 +379,8 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                'score_order': score_order,
                'sample_multiple_edges_uniformly_num_trials': sample_multiple_edges_uniformly_num_trials,
                'fraction_of_removals_in_randomly_flipped_edges': fraction_of_removals_in_randomly_flipped_edges,
-               'plot_against_density': plot_against_density}
+               'plot_against_density': plot_against_density,
+               'average_over_all_graphs': average_over_all_graphs}
     
     if len(use_this_sys_matrix_spec_dist_for_corr) > 0:
         options['use_this_sys_matrix_spec_dist_for_corr'] = use_this_sys_matrix_spec_dist_for_corr[0]

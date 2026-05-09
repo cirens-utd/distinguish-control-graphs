@@ -192,6 +192,7 @@ def make_scatter_plot(
     filter_values=None,
     thresholds=None,
     y_label_text=None,
+    threshold_line_mode="vertical",
 ):
     """
     Make scatter plots for multiple selected y-columns.
@@ -208,11 +209,13 @@ def make_scatter_plot(
 
     Legend entries are shown only once in a single row at the top of all plots.
 
-    For each selected column, filter value, and threshold, this function finds
-    the data point with the maximum x-axis value among points whose
-    lower error-bar value, avg - std, is below the threshold. It then draws
-    a vertical dashed line at that x-axis value using the same color as the
-    corresponding filter's scatter plot.
+    For each selected column, filter value, and threshold, this function reports
+    the data point with the maximum x-axis value among points whose lower
+    error-bar value, avg - std, is below the threshold.
+
+    The threshold visualization can be either:
+        - "vertical": draw vertical lines at the reported maximum x-values.
+        - "horizontal": draw horizontal lines at the threshold y-values.
 
     Parameters
     ----------
@@ -228,12 +231,25 @@ def make_scatter_plot(
         Values to include for the chosen filter. If None, all valid values
         for filter_by are included.
     thresholds : list[float], tuple[float], or None
-        Thresholds used to draw vertical reference lines. For each filter value
-        and threshold, a line is drawn at the maximum x-value among plotted
-        data points whose avg - std value is below the threshold. If None,
-        defaults to [0.95, 0.8].
+        Thresholds used for reporting and threshold-line plotting. Reporting
+        always uses avg - std < threshold. If None, defaults to [0.95, 0.8].
+    y_label_text : str or None
+        Optional shared y-axis label text.
+    threshold_line_mode : str
+        Either "vertical" or "horizontal". If "vertical", draw lines at the
+        maximum x-values that violate each threshold. If "horizontal", draw
+        horizontal threshold lines.
     """
-    y_label_text = y_label_text.replace('\\n', '\n')
+    if y_label_text is None:
+        y_label_text = ""
+    else:
+        y_label_text = y_label_text.replace("\\n", "\n")
+
+    if threshold_line_mode not in {"vertical", "horizontal"}:
+        raise ValueError(
+            f"Invalid threshold_line_mode: {threshold_line_mode}. "
+            "Allowed values are: vertical, horizontal"
+        )
 
     filter_values = validate_filter_values(filter_by, filter_values)
 
@@ -267,6 +283,11 @@ def make_scatter_plot(
         "neg_laplacian": "tab:red",
     }
 
+    threshold_colors = {
+        0.95: "green",
+        0.8: "red",
+    }
+
     if filter_by == "graph_type":
         filter_markers = graph_type_markers
         filter_colors = graph_type_colors
@@ -284,6 +305,7 @@ def make_scatter_plot(
     x_size_factor = 1.3
     y_size_factor = 1.5
     y_label_text_separate = True
+
     if n_plots == 1:
         y_size_factor = 2.0
         y_label_text_separate = False
@@ -308,6 +330,7 @@ def make_scatter_plot(
         print(f"Selected filter mode: {filter_by}")
         print(f"Selected {filter_by} filter: {sorted(filter_values)}")
         print(f"Selected threshold(s): {thresholds}")
+        print(f"Threshold line mode: {threshold_line_mode}")
 
         column_max_x_values_below_threshold = {
             threshold: [] for threshold in thresholds
@@ -352,12 +375,13 @@ def make_scatter_plot(
                         f"{threshold}: {max_x_below_threshold}"
                     )
 
-                    ax.axvline(
-                        max_x_below_threshold,
-                        color=filter_colors[filter_value],
-                        linestyle="--",
-                        linewidth=1,
-                    )
+                    if threshold_line_mode == "vertical":
+                        ax.axvline(
+                            max_x_below_threshold,
+                            color=filter_colors[filter_value],
+                            linestyle="--",
+                            linewidth=1,
+                        )
                 else:
                     print(f"No points found with avg - std < {threshold}")
 
@@ -387,6 +411,17 @@ def make_scatter_plot(
                 legend_handles.append(scatter)
                 legend_labels.append(legend_label)
 
+        if threshold_line_mode == "horizontal":
+            for threshold in thresholds:
+                ax.axhline(
+                    threshold,
+                    color=threshold_colors[threshold]
+                    if threshold in threshold_colors
+                    else "gray",
+                    linestyle="--",
+                    linewidth=1,
+                )
+
         print(f"\nOverall summary for average y-column {y_col_num}:")
         for threshold in thresholds:
             if len(column_max_x_values_below_threshold[threshold]) > 0:
@@ -406,9 +441,9 @@ def make_scatter_plot(
         if y_label_text_separate:
             ax.set_ylabel(ylabel)
         else:
-            ax.set_ylabel(y_label_text + '\n' + ylabel)
+            ax.set_ylabel(y_label_text + "\n" + ylabel)
 
-    axes[-1].set_xlabel("$\delta_r$")
+    axes[-1].set_xlabel("$\\delta_r$")
 
     # One shared legend in a single row at the top of all plots
     fig.legend(
@@ -422,7 +457,7 @@ def make_scatter_plot(
     )
 
     if y_label_text_separate:
-        fig.supylabel(y_label_text, fontsize='medium')
+        fig.supylabel(y_label_text, fontsize="medium")
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
 
@@ -502,6 +537,20 @@ if __name__ == "__main__":
         ),
     )
 
+    parser.add_argument(
+        "--threshold_line_mode",
+        choices=["vertical", "horizontal"],
+        default="vertical",
+        help=(
+            "How to visualize thresholds. "
+            "'vertical' draws vertical lines at the highest x-value where "
+            "avg - std violates each threshold. "
+            "'horizontal' draws horizontal lines at the given threshold values. "
+            "Reporting of the highest violating x-value is always performed. "
+            "Default: vertical."
+        ),
+    )
+
     args = parser.parse_args()
 
     if args.graph_type is not None and args.system_matrix_type is not None:
@@ -524,4 +573,5 @@ if __name__ == "__main__":
         filter_values=filter_values,
         thresholds=args.thresholds,
         y_label_text=args.ylabel,
+        threshold_line_mode=args.threshold_line_mode,
     )

@@ -33,7 +33,7 @@ def finite_time_gramian(A, B, t=1.0):
     top = np.hstack([-A, B @ B.T])
     bot = np.hstack([np.zeros((n, n)), A.T])
     M = np.vstack([top, bot])
-    T = expm(M * t)
+    T = expm((M * t).astype(np.float64))
     F22 = T[n:2*n, n:2*n]
     F12 = T[0:n,   n:2*n]
     return F22.T @ F12  # symmetric PSD
@@ -69,7 +69,7 @@ def finite_time_discrete_gramian(A, B, t_as_fraction_of_n=2.0):
     return Wc_discrete
 
 
-def finite_horizon_gramian_through_integration(A, B, t_total=1.0):
+def finite_horizon_gramian_through_integration(A, B, t=1.0):
     """
     Computes the finite horizon controllability Gramian Wc(T) for a system (A, B).
 
@@ -93,7 +93,7 @@ def finite_horizon_gramian_through_integration(A, B, t_total=1.0):
     W0_flat = np.zeros(n * n)
     
     # Time span for integration
-    t_span = [0, t_total]
+    t_span = [0, t]
     
     # Solve the ODE
     solution = solve_ivp(gramian_ode, t_span, W0_flat, dense_output=True)

@@ -2,6 +2,7 @@ import numpy as np
 import networkx as nx
 from scipy.sparse.csgraph import shortest_path
 from numpy.linalg import eigvalsh
+from sympy import continued_fraction
 from my_control_lib import (
     finite_time_gramian, 
     pseudo_gramian_for_semistable_A_inf_horizon,
@@ -218,7 +219,8 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None, 
     
     match options['gramian_choice']:
         case 'finite_continuous':
-            gramian_func = finite_time_gramian
+            # gramian_func = finite_time_gramian
+            gramian_func = finite_horizon_gramian_through_integration
         case 'finite_discrete':
             gramian_func = finite_time_discrete_gramian
         case 'pseudo_infinite_continuous':
@@ -278,11 +280,11 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None, 
     else:
         all_node_index_pairs = [(i, j) for i in range(n) for j in range(n) if j > i + 1]
     
+    fraction_of_removals_in_randomly_flipped_edges = options['fraction_of_removals_in_randomly_flipped_edges']
     if sample_multiple_edges_uniformly_num_trials is None and fraction_of_removals_in_randomly_flipped_edges is not None:
         raise ValueError("fraction_of_removals_in_randomly_flipped_edges can only be used with sample_multiple_edges_uniformly_num_trials.")
     
     if sample_multiple_edges_uniformly_num_trials is not None:
-        fraction_of_removals_in_randomly_flipped_edges = options['fraction_of_removals_in_randomly_flipped_edges']
         fraction_of_additions_in_randomly_flipped_edges = 1 - fraction_of_removals_in_randomly_flipped_edges
         addable_edges = []
         removable_edges = []
@@ -438,6 +440,7 @@ def rank_edges_based_on_toggling_single_edge(G, options, ranking_of_edges=None, 
         results_per_edge[results_key]['Wc_logdet_diff'] = W_logdet_diff
         results_per_edge[results_key]['Wc_rank_diff'] = W_rank_diff
         results_per_edge[results_key]['Wc_spec_dist'] = Wc_spec_dist
+        results_per_edge[results_key]['log10(Wc_spec_dist)'] = np.log10(Wc_spec_dist) if Wc_spec_dist > 0 else -np.inf
         results_per_edge[results_key]['density'] = G_mod_density
         other_results['min_density'] = min(other_results['min_density'], G_mod_density)
         other_results['max_density'] = max(other_results['max_density'], G_mod_density)
@@ -558,7 +561,7 @@ def zero_forcing_set_greedy(G):
 
 
 def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency', input=None, plot_type='matrix', figfile=None, axis=None,
-        right_axis=False, ylabel='default'):
+        right_axis=False, ylabel='default', dist_scale='linear'):
     """
     Given a list of graphs, compute a matrix of pairwise spectral distances.
     Returns a symmetric distance matrix.
@@ -569,13 +572,13 @@ def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency
     # Precompute eigenvalues for all graphs
     eigvals_list = []
     graph_matrices = []
-    for G in graphs:
+    for G in tqdm(graphs, desc="Computing spectra"):
         A = get_system_matrix_from_graph(G, matrix_choice=matrix_type)
         if input is not None:
             options = {'input': input}
             B = get_input(G, options)
             # A = finite_time_gramian(A, B, t=1)
-            A = finite_horizon_gramian_through_integration(A, B, t_total=1.0)
+            A = finite_horizon_gramian_through_integration(A, B, t=1.0)
         graph_matrices.append(A)
         eigvals, _ = real_eigval_and_eigvec_for_potentially_nonsymmetric_matrix(A)
         eigvals_list.append(eigvals)
@@ -589,6 +592,10 @@ def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency
                 dist = 0.0
             else:
                 dist = spectral_distance(graph_matrices[i], graph_matrices[j], M1_eigvals=eigvals_list[i], M2_eigvals=eigvals_list[j])
+            if dist_scale == 'log':
+                dist = np.log10(dist)
+            elif dist_scale != 'linear':
+                raise ValueError(f"Invalid distance scale: {dist_scale}")
             dist_matrix[i, j] = dist
             dist_matrix[j, i] = dist  # Symmetric
             density_diff_list.append(abs(nx.density(graphs[i]) - nx.density(graphs[j])))
@@ -597,6 +604,9 @@ def compute_matrix_of_pairwise_spectral_distances(graphs, matrix_type='adjacency
     color = 'green'
     if right_axis:
         color = 'blue'
+    
+    if axis is None:
+        fig, axis = plt.subplots(1, 1)
     
     if plot_type != 'none':
         if plot_type == 'matrix':
@@ -893,9 +903,22 @@ def compute_zfs_transf_Gramian_spectra_of_given_two_graphs(adj1, adj2, t=1, matr
     return W1_eigvals, W2_eigvals, M1_eigvals, M2_eigvals, G1, G2
 
 
-def three_graphs_with_params(params):
-    graph_choices = [{'type': 'connected_ER', 'n': params['n'], 'p': params['p']},
-                     {'type': 'connected_RG', 'n': params['n'], 'r': params['r']},
-                     {'type':           'BA', 'n': params['n'], 'm': params['m'], 'init': {'type': 'complete', 'n': round(0.4*params['n'])}}]
-    graphs = [get_graph(graph_choice=choice) for choice in graph_choices]
+def graphs_with_params(params):
+    graphs = []
+    graph_choices = []
+    for key, value in params.items():
+        match key:
+            case 'p':
+                graph_choice = {'type': 'connected_ER', 'n': params['n'], 'p': params['p']}
+            case 'r' | 'd':
+                graph_choice = {'type': 'connected_RG', 'n': params['n'], 'r': params['r']}
+            case 'm':
+                graph_choice = {'type': 'BA', 'n': params['n'], 'm': params['m'], 'init': {'type': 'complete', 'n': round(0.4*params['n'])}}
+            case 'n':
+                continue
+            case _:
+                raise ValueError(f"Unknown graph parameter: {key}")
+        graphs.append(get_graph(graph_choice))
+        graph_choices.append(graph_choice)
+            
     return graphs, graph_choices

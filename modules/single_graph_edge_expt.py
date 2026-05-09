@@ -21,7 +21,7 @@ plt.rcParams.update({
 
 def adjust_ylabel_for_paper(ylabel, options):
     new_label = ylabel
-    if options['label_figure_for_paper']:
+    if options['label_figure_for_paper'] or options['label_figure_for_paper_with_graph_info']:
         match ylabel:
             case 'sys_mat_spec_dist':
                 matrix_name = options["graph_matrix_choice"]
@@ -30,6 +30,8 @@ def adjust_ylabel_for_paper(ylabel, options):
                 elif matrix_name == 'neg_laplacian':
                     matrix_name = 'Laplacian'
                 new_label = f'{matrix_name} Spectral Distance'
+            case 'Wc_spec_dist':
+                new_label = 'Gramian Spectral Distance'
             case _:
                 pass
     return new_label
@@ -59,7 +61,10 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
     all_corr_coef_scores = {}
     
     for plot in options['plots']:
-        x = list(range(1, n + 1))
+        if options['plot_against_density']:
+            x = [item[1]['density'] for item in sorted_data_asc]
+        else:
+            x = list(range(1, n + 1))
         y1 = [item[1][plot['y1']] for item in sorted_data_asc]
         y2 = [item[1][plot['y2']] for item in sorted_data_asc]
         y3 = []
@@ -138,7 +143,7 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
         coefficients_in_title = f'Spearman rank coefficient: {corr_coef_scores[0]:.2g}\n' + \
                                 f'Kendall rank coefficient: {corr_coef_scores[1]:.2g}'
         if options['label_figure_for_paper']:
-            title = coefficients_in_title
+            title = None
         elif options['label_figure_for_paper_with_graph_info']:
             title = f'Graph: {options['graph_choice']}\n'
             for k, v in all_corr_coef_scores.items():
@@ -151,10 +156,16 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
                 f'Gramian: {options['gramian_choice']}'
                 # f'($\\lambda_1$ = {other_results['A_lambda_min']:.2g}' + \
                 # f', $\\lambda_n$ = {other_results['A_lambda_max']:.2g})\n' + \
+        
         if options['edge_score_choice'] == 'random':
             title += f'\nRandom order of edges'
 
-        plt.title(title)
+        if title is not None:
+            plt.title(title)
+        else:
+            print(f'Coefficients: {coefficients_in_title}')
+        if options['plot_against_density']:
+            ax1.set_xlabel('Density')
 
         if created_figure:
             plt.tight_layout()
@@ -287,11 +298,12 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
             label += " (only added edges)"
         elif options.get('only_remove_edges', False):
             label += " (only removed edges)"
-        fig.supxlabel(label)
+        if not options['plot_against_density']:
+            fig.supxlabel(label)
         plt.tight_layout()
         if not debug_dont_plot:
             # fig.legend(loc='outside lower center', ncol=2)
-            if options.get('fig_output_file_name', None) is not None:
+            if options['fig_output_file_name'] is not None:
                 plt.savefig(options['fig_output_file_name'])
             plt.show()
         else:
@@ -308,7 +320,7 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
         plot_single_edge_flip_scores=False, rand_edge_order={}, fig_output_file_name=None,
         results_file=None, other_pairs_of_quantities_to_plot=[], t_horizon_setting_for_ETEC='2n',
         score_order='ascending', sample_multiple_edges_uniformly_num_trials=None,
-        fraction_of_removals_in_randomly_flipped_edges=None):
+        fraction_of_removals_in_randomly_flipped_edges=None, plot_against_density=True):
     
     options = {'graph_choices': graph_choices,
                'graphs': graphs,
@@ -326,7 +338,8 @@ def graph_edge_toggling_expt_using_given_graphs_and_scoring_choice(graph_choices
                'fig_output_file_name': fig_output_file_name,
                'score_order': score_order,
                'sample_multiple_edges_uniformly_num_trials': sample_multiple_edges_uniformly_num_trials,
-               'fraction_of_removals_in_randomly_flipped_edges': fraction_of_removals_in_randomly_flipped_edges}
+               'fraction_of_removals_in_randomly_flipped_edges': fraction_of_removals_in_randomly_flipped_edges,
+               'plot_against_density': plot_against_density}
     
     if len(use_this_sys_matrix_spec_dist_for_corr) > 0:
         options['use_this_sys_matrix_spec_dist_for_corr'] = use_this_sys_matrix_spec_dist_for_corr[0]

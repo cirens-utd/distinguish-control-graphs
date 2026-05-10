@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 
 CSV_FILE = "controlled_density_edge_flip_results.csv"
 
-X_COL_NUM = 14  # 1-based column number for density_delta_from_avg
+X_COL_NUM = 15  # 1-based column number for density_delta_from_avg
 
-SYSTEM_MATRIX_TYPE_COL_NUM = 2  # 1-based column number for system matrix type
-GRAPH_TYPE_COL_NUM = 3  # 1-based column number for graph_type
+SYSTEM_MATRIX_TYPE_COL_NUM = 3  # 1-based column number for system matrix type
+GRAPH_TYPE_COL_NUM = 4  # 1-based column number for graph_type
 
 ALLOWED_SYSTEM_MATRIX_TYPES = {"adjacency", "neg_laplacian"}
 ALLOWED_GRAPH_TYPES = {"connected_ER", "connected_RG", "BA"}

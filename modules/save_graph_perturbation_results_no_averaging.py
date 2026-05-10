@@ -29,11 +29,21 @@ list_of_graph_lists = [[[get_graph(graph_choice=choice) for _ in range(n_graphs)
 
 parser = argparse.ArgumentParser(description="Process t_horizon argument.")
 parser.add_argument('--t_horizon', type=float, default=None, help='The time horizon')
+parser.add_argument(
+        '--fractions_of_removals', 
+        type=float, 
+        nargs='+', 
+        default=None,
+        help='List of floats (optional)'
+    )
 
 args = parser.parse_args()
 
 # controlled-density perturbations
-fractions_of_removals_in_randomly_flipped_edges = np.linspace(0, 1, 21)
+if args.fractions_of_removals is None:
+    fractions_of_removals_in_randomly_flipped_edges = np.linspace(0, 1, 21)
+else:
+    fractions_of_removals_in_randomly_flipped_edges = args.fractions_of_removals
 # for t_horizon in [0.01, 0.1, 1, 10]:
 for fraction in fractions_of_removals_in_randomly_flipped_edges:
     print(f"Running for t_horizon {args.t_horizon} and fraction_of_removal {fraction}...")

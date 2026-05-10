@@ -9,6 +9,9 @@ from single_graph_edge_expt import graph_edge_toggling_expt_using_given_graphs_a
 from graphs import get_graph
 import numpy as np
 from tqdm import tqdm
+from pathlib import Path
+import shutil
+
 
 matrix_choices = ['adjacency', 'neg_laplacian']
 input_choices = ['all_ones', 'identity', 'zfs', 'zfs_transf', 'zfs_new']
@@ -39,6 +42,12 @@ parser.add_argument(
 
 args = parser.parse_args()
 
+filename = f'controlled_density_edge_flip_results_no_averaging_t_{args.t_horizon:2g}.csv'
+template_filename = 'controlled_density_edge_flip_results_no_averaging_template.csv'
+
+if not Path(filename).exists():
+    shutil.copyfile(template_filename, filename)
+
 # controlled-density perturbations
 if args.fractions_of_removals is None:
     fractions_of_removals_in_randomly_flipped_edges = np.linspace(0, 1, 21)
@@ -53,7 +62,7 @@ for fraction in fractions_of_removals_in_randomly_flipped_edges:
             edge_score_choices=['random'], plot_this='density',
             sample_multiple_edges_uniformly_num_trials=100, sort_by='graph_edit_distance',
             fraction_of_removals_in_randomly_flipped_edges=fraction,
-            results_file='controlled_density_edge_flip_results_no_averaging.csv',
+            results_file=filename,
             other_pairs_of_quantities_to_plot=[
                 {'y1': 'sys_mat_spec_dist', 'y2': 'Wc_spec_dist'},
                 {'y1': 'density', 'y2': 'Wc_spec_dist'}],

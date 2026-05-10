@@ -6,6 +6,7 @@ from tqdm import trange, tqdm
 from math import isfinite
 from graphs import rank_edges_based_on_toggling_single_edge, get_graph_param_from_graph_choice
 from copy import deepcopy
+import re
 
 # Default plotting style (optional)
 plt.rcParams.update({
@@ -191,7 +192,9 @@ def compute_average_corr_coef_scores_across_all_graphs_and_write_to_file(all_cor
     max_density_std = np.std(max_densities)
 
     if results_file is not None:
-        f = open(results_file.replace('_no_averaging', ''), 'a', encoding='utf-8')
+        # average_results_filename = results_file.replace('_no_averaging', '')
+        average_results_filename = re.sub(r"_no_averaging_t_-?\d+(?:\.\d+)?(?=\.csv$)", "", results_file)
+        f = open(average_results_filename, 'a', encoding='utf-8')
         # format: t_horizon, n_graphs, sys_matrix, graph_type, n_nodes, graph_param, density_avg, density_std, input, edge_score, quantity_pair_in_quotations, metric_1, corr_coef_avg_1, corr_coef_std_1, metric_2, corr_coef_avg_2, corr_coef_std_2
         f.write(f"{options['t_horizon']}, ")
         f.write(f"{len(options['graphs'])}, ")

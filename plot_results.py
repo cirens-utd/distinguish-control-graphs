@@ -443,7 +443,7 @@ def make_scatter_plot(
         else:
             ax.set_ylabel(y_label_text + "\n" + ylabel)
 
-    axes[-1].set_xlabel("$\\delta_r$")
+    axes[-1].set_xlabel("$\\delta_{\\text{max diff}}$")
 
     # One shared legend in a single row at the top of all plots
     fig.legend(

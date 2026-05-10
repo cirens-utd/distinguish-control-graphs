@@ -42,7 +42,7 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-filename = f'controlled_density_edge_flip_results_no_averaging_t_{args.t_horizon:2g}.csv'
+filename = f'controlled_density_edge_flip_results_no_averaging_t_{args.t_horizon:.2g}.csv'
 template_filename = 'controlled_density_edge_flip_results_no_averaging_template.csv'
 
 if not Path(filename).exists():

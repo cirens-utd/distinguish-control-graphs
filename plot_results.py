@@ -7,14 +7,52 @@ import os
 
 CSV_FILE = "controlled_density_edge_flip_results.csv"
 
-X_COL_NUM = 12  # 1-based column number for density_delta_from_avg
-DENSITY_COL_NUM = 7  # 1-based column number for original graph density
-
 SYSTEM_MATRIX_TYPE_COL_NUM = 3  # 1-based column number for system matrix type
 GRAPH_TYPE_COL_NUM = 4  # 1-based column number for graph_type
+DENSITY_COL_NUM = 7  # 1-based column number for original graph density
+INPUT_MATRIX_TYPE_COL_NUM = 8  # 1-based column number for input matrix type
+X_COL_NUM = 12  # 1-based column number for density_delta_from_avg
 
 ALLOWED_SYSTEM_MATRIX_TYPES = {"adjacency", "neg_laplacian"}
 ALLOWED_GRAPH_TYPES = {"connected_ER", "connected_RG", "BA"}
+ALLOWED_INPUT_MATRIX_TYPES = {
+    "identity",
+    "all_ones",
+    "zfs",
+    "zfs_new",
+    "zfs_transf",
+}
+
+
+def validate_input_matrix_types(input_matrix_types):
+    """
+    Validate requested input matrix types.
+
+    Parameters
+    ----------
+    input_matrix_types : list[str], set[str], or None
+        Requested input matrix types. If None, no input-matrix-type filtering
+        is applied.
+
+    Returns
+    -------
+    set[str] or None
+        Set of input matrix types to include, or None if no filtering is requested.
+    """
+    if input_matrix_types is None:
+        return None
+
+    input_matrix_types = set(input_matrix_types)
+    invalid_input_matrix_types = input_matrix_types - ALLOWED_INPUT_MATRIX_TYPES
+
+    if invalid_input_matrix_types:
+        raise ValueError(
+            f"Invalid input_matrix_type value(s): "
+            f"{sorted(invalid_input_matrix_types)}. "
+            f"Allowed values are: {sorted(ALLOWED_INPUT_MATRIX_TYPES)}"
+        )
+
+    return input_matrix_types
 
 
 def validate_density_range(density_range):
@@ -156,6 +194,7 @@ def extract_column_data(
     filter_by="graph_type",
     filter_values=None,
     no_averaging=True,
+    density_range=None,
 ):
     """
     Extract x and y data from one or more CSV files.
@@ -165,6 +204,8 @@ def extract_column_data(
 
     If no_averaging is False, y_col_num is treated as the average column and
     the standard deviation is read from the column immediately after it.
+
+    Rows can also be filtered by original graph density from column 7.
 
     Parameters
     ----------
@@ -179,6 +220,10 @@ def extract_column_data(
         Values to include for the chosen filter.
     no_averaging : bool
         If True, do not load std values. If False, load std from y_col_num + 1.
+    density_range : list[float], tuple[float], or None
+        Optional density range [min_density, max_density]. If provided, only
+        rows whose original graph density in column 7 lies within this range
+        are loaded.
 
     Returns
     -------
@@ -194,6 +239,7 @@ def extract_column_data(
         Matplotlib label based on previous column label.
     """
     filter_values = validate_filter_values(filter_by, filter_values)
+    density_range = validate_density_range(density_range)
 
     if isinstance(csv_files, str):
         csv_files = [csv_files]
@@ -202,6 +248,7 @@ def extract_column_data(
     y_idx = y_col_num - 1
     std_idx = y_idx + 1
     label_idx = y_idx - 1
+    density_idx = DENSITY_COL_NUM - 1
 
     if filter_by == "graph_type":
         filter_idx = GRAPH_TYPE_COL_NUM - 1
@@ -234,15 +281,17 @@ def extract_column_data(
             reader = csv.reader(f)
 
             for row in reader:
+                required_max_idx = max(
+                    x_idx,
+                    filter_idx,
+                    y_idx,
+                    label_idx,
+                    density_idx,
+                )
                 if no_averaging:
-                    required_max_idx = max(x_idx, filter_idx, y_idx, label_idx)
-                else:
                     required_max_idx = max(
-                        x_idx,
-                        filter_idx,
-                        y_idx,
+                        required_max_idx,
                         std_idx,
-                        label_idx,
                     )
 
                 if len(row) <= required_max_idx:
@@ -254,6 +303,18 @@ def extract_column_data(
                     continue
 
                 try:
+                    density = float(row[density_idx])
+                except ValueError:
+                    # Skips header row or rows with non-numeric density
+                    continue
+
+                if density_range is not None:
+                    min_density, max_density = density_range
+
+                    if density < min_density or density > max_density:
+                        continue
+
+                try:
                     x = float(row[x_idx])
                     y = float(row[y_idx])
 
@@ -263,7 +324,8 @@ def extract_column_data(
                     # Skips header row or rows where selected columns are not numeric
                     print(
                         f"Skipping row: {row} with non-numeric values at indices "
-                        f"x={row[x_idx]}, y={row[y_idx]}, std={row[std_idx] if not no_averaging else 'N/A'}"
+                        f"x={row[x_idx]}, y={row[y_idx]}, "
+                        f"std={row[std_idx] if not no_averaging else 'N/A'}"
                     )
                     continue
 
@@ -276,31 +338,41 @@ def extract_column_data(
                 labels.append(row[label_idx].strip())
 
     if not x_vals:
+        density_filter_text = (
+            f" and density_range={density_range}"
+            if density_range is not None
+            else ""
+        )
+
         if no_averaging:
             raise ValueError(
                 f"No numeric data found for coefficient column {y_col_num} "
-                f"with {filter_by} filter {sorted(filter_values)}. "
+                f"with {filter_by} filter {sorted(filter_values)}"
+                f"{density_filter_text}. "
                 f"Files checked: {csv_files}."
             )
 
         raise ValueError(
             f"No numeric data found for average column {y_col_num} "
             f"and std column {y_col_num + 1} "
-            f"with {filter_by} filter {sorted(filter_values)}. "
+            f"with {filter_by} filter {sorted(filter_values)}"
+            f"{density_filter_text}. "
             f"Files checked: {csv_files}."
         )
 
     if no_averaging:
         print(
             f"Found {len(x_vals)} total data points for coefficient column "
-            f"{y_col_num} with {filter_by} filter {sorted(filter_values)}."
+            f"{y_col_num} with {filter_by} filter {sorted(filter_values)} "
+            f"and density_range={density_range}."
         )
         std_vals = None
     else:
         print(
             f"Found {len(x_vals)} total data points for average column "
             f"{y_col_num} and std column {y_col_num + 1} "
-            f"with {filter_by} filter {sorted(filter_values)}."
+            f"with {filter_by} filter {sorted(filter_values)} "
+            f"and density_range={density_range}."
         )
         std_vals = np.asarray(std_vals, dtype=float)
 
@@ -327,6 +399,7 @@ def make_scatter_plot(
     threshold_line_mode="vertical",
     no_averaging=True,
     time_horizons=None,
+    density_range=None,
 ):
     """
     Make scatter plots for multiple selected y-columns.
@@ -385,8 +458,14 @@ def make_scatter_plot(
         print(f"  {input_csv_file}")
 
     print(f"No averaging mode: {no_averaging}")
-
-    filter_values = validate_filter_values(filter_by, filter_values)
+    
+    if density_range is None:
+        print("Density range filter: None")
+    else:
+        print(
+            f"Density range filter: "
+            f"{density_range[0]} <= density <= {density_range[1]}"
+        )
 
     if thresholds is None:
         thresholds = [0.95, 0.8]
@@ -442,7 +521,7 @@ def make_scatter_plot(
     y_label_text_separate = True
 
     if n_plots == 1:
-        y_size_factor = 2.0
+        y_size_factor = 2.5
         y_label_text_separate = False
 
     fig, axes = plt.subplots(
@@ -470,6 +549,11 @@ def make_scatter_plot(
         print(f"Selected {filter_by} filter: {sorted(filter_values)}")
         print(f"Selected threshold(s): {thresholds}")
         print(f"Threshold line mode: {threshold_line_mode}")
+        if density_range is not None:
+            print(
+                f"Selected density range: "
+                f"{density_range[0]} <= density <= {density_range[1]}"
+            )
 
         column_max_x_values_below_threshold = {
             threshold: [] for threshold in thresholds
@@ -484,6 +568,7 @@ def make_scatter_plot(
                 filter_by=filter_by,
                 filter_values=[filter_value],
                 no_averaging=no_averaging,
+                density_range=density_range,
             )
 
             if filter_by == "graph_type":
@@ -621,6 +706,8 @@ def make_scatter_plot(
     plt.tight_layout(rect=[0, 0, 1, 0.95])
 
     if save_filename:
+        if density_range is not None:
+            save_filename = save_filename.replace(".png", f"_orig_density_range_{density_range[0]}_to_{density_range[1]}.png")
         plt.savefig(save_filename, dpi=300, bbox_inches="tight")
         print(f"\nSaved plot to: {save_filename}")
 
@@ -746,6 +833,19 @@ if __name__ == "__main__":
         ),
     )
 
+    parser.add_argument(
+        "--density_range",
+        nargs=2,
+        type=float,
+        default=None,
+        metavar=("MIN_DENSITY", "MAX_DENSITY"),
+        help=(
+            "Optional original graph density filter using column 7. "
+            "Provide two numbers: min_density max_density. "
+            "Rows are included if min_density <= density <= max_density."
+        ),
+    )
+
     args = parser.parse_args()
 
     if args.graph_type is not None and args.system_matrix_type is not None:
@@ -771,4 +871,5 @@ if __name__ == "__main__":
         threshold_line_mode=args.threshold_line_mode,
         no_averaging=args.no_averaging,
         time_horizons=args.time_horizons,
+        density_range=args.density_range,
     )

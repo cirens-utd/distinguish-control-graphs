@@ -3,6 +3,8 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from PIL import Image
+import sys
 
 
 CSV_FILE = "controlled_density_edge_flip_results.csv"
@@ -22,6 +24,62 @@ ALLOWED_INPUT_MATRIX_TYPES = {
     "zfs_new",
     "zfs_transf",
 }
+
+
+def crop_white_space_in_place(image_path, white_threshold=255):
+    """
+    Crop white space around the non-white content of a PNG image
+    and save it back with the same filename.
+
+    Parameters
+    ----------
+    image_path : str
+        Path to the PNG image.
+    white_threshold : int
+        Pixel values >= this threshold are treated as white.
+        Use 255 for pure white only, or e.g. 245 for near-white.
+    """
+
+    img = Image.open(image_path).convert("RGBA")
+
+    # Create a white background image
+    white_bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
+
+    # If the image has transparency, composite it over white
+    composited = Image.alpha_composite(white_bg, img)
+
+    # Convert to RGB for white detection
+    rgb = composited.convert("RGB")
+
+    # Create a mask of non-white pixels
+    mask = Image.new("L", rgb.size, 0)
+    pixels = rgb.load()
+    mask_pixels = mask.load()
+
+    width, height = rgb.size
+
+    for y in range(height):
+        for x in range(width):
+            r, g, b = pixels[x, y]
+
+            if (
+                r < white_threshold
+                or g < white_threshold
+                or b < white_threshold
+            ):
+                mask_pixels[x, y] = 255
+
+    bbox = mask.getbbox()
+
+    # If the image is completely white, do nothing
+    if bbox is None:
+        print(f"No non-white pixels found in {image_path}. Image unchanged.")
+        return
+
+    cropped = img.crop(bbox)
+    cropped.save(image_path)
+
+    print(f"Cropped and saved: {image_path}")
 
 
 def validate_input_matrix_types(input_matrix_types):
@@ -195,6 +253,7 @@ def extract_column_data(
     filter_values=None,
     no_averaging=True,
     density_range=None,
+    input_matrix_types=None,
 ):
     """
     Extract x and y data from one or more CSV files.
@@ -205,7 +264,8 @@ def extract_column_data(
     If no_averaging is False, y_col_num is treated as the average column and
     the standard deviation is read from the column immediately after it.
 
-    Rows can also be filtered by original graph density from column 7.
+    Rows can also be filtered by original graph density from column 7 and
+    input matrix type from column 8.
 
     Parameters
     ----------
@@ -221,9 +281,10 @@ def extract_column_data(
     no_averaging : bool
         If True, do not load std values. If False, load std from y_col_num + 1.
     density_range : list[float], tuple[float], or None
-        Optional density range [min_density, max_density]. If provided, only
-        rows whose original graph density in column 7 lies within this range
-        are loaded.
+        Optional density range [min_density, max_density].
+    input_matrix_types : list[str], set[str], or None
+        Optional input matrix types to include. Valid values are:
+        identity, all_ones, zfs, zfs_new, zfs_transf.
 
     Returns
     -------
@@ -240,6 +301,7 @@ def extract_column_data(
     """
     filter_values = validate_filter_values(filter_by, filter_values)
     density_range = validate_density_range(density_range)
+    input_matrix_types = validate_input_matrix_types(input_matrix_types)
 
     if isinstance(csv_files, str):
         csv_files = [csv_files]
@@ -249,6 +311,7 @@ def extract_column_data(
     std_idx = y_idx + 1
     label_idx = y_idx - 1
     density_idx = DENSITY_COL_NUM - 1
+    input_matrix_type_idx = INPUT_MATRIX_TYPE_COL_NUM - 1
 
     if filter_by == "graph_type":
         filter_idx = GRAPH_TYPE_COL_NUM - 1
@@ -287,8 +350,10 @@ def extract_column_data(
                     y_idx,
                     label_idx,
                     density_idx,
+                    input_matrix_type_idx,
                 )
-                if no_averaging:
+
+                if not no_averaging:
                     required_max_idx = max(
                         required_max_idx,
                         std_idx,
@@ -300,6 +365,14 @@ def extract_column_data(
                 filter_value = row[filter_idx].strip()
 
                 if filter_value not in filter_values:
+                    continue
+
+                input_matrix_type = row[input_matrix_type_idx].strip()
+
+                if (
+                    input_matrix_types is not None
+                    and input_matrix_type not in input_matrix_types
+                ):
                     continue
 
                 try:
@@ -343,12 +416,18 @@ def extract_column_data(
             if density_range is not None
             else ""
         )
+        input_matrix_filter_text = (
+            f" and input_matrix_types={sorted(input_matrix_types)}"
+            if input_matrix_types is not None
+            else ""
+        )
 
         if no_averaging:
             raise ValueError(
                 f"No numeric data found for coefficient column {y_col_num} "
                 f"with {filter_by} filter {sorted(filter_values)}"
-                f"{density_filter_text}. "
+                f"{density_filter_text}"
+                f"{input_matrix_filter_text}. "
                 f"Files checked: {csv_files}."
             )
 
@@ -356,7 +435,8 @@ def extract_column_data(
             f"No numeric data found for average column {y_col_num} "
             f"and std column {y_col_num + 1} "
             f"with {filter_by} filter {sorted(filter_values)}"
-            f"{density_filter_text}. "
+            f"{density_filter_text}"
+            f"{input_matrix_filter_text}. "
             f"Files checked: {csv_files}."
         )
 
@@ -364,7 +444,8 @@ def extract_column_data(
         print(
             f"Found {len(x_vals)} total data points for coefficient column "
             f"{y_col_num} with {filter_by} filter {sorted(filter_values)} "
-            f"and density_range={density_range}."
+            f"and density_range={density_range} "
+            f"and input_matrix_types={input_matrix_types}."
         )
         std_vals = None
     else:
@@ -372,7 +453,8 @@ def extract_column_data(
             f"Found {len(x_vals)} total data points for average column "
             f"{y_col_num} and std column {y_col_num + 1} "
             f"with {filter_by} filter {sorted(filter_values)} "
-            f"and density_range={density_range}."
+            f"and density_range={density_range} "
+            f"and input_matrix_types={input_matrix_types}."
         )
         std_vals = np.asarray(std_vals, dtype=float)
 
@@ -400,6 +482,8 @@ def make_scatter_plot(
     no_averaging=True,
     time_horizons=None,
     density_range=None,
+    input_matrix_types=None,
+    display=True,
 ):
     """
     Make scatter plots for multiple selected y-columns.
@@ -466,6 +550,11 @@ def make_scatter_plot(
             f"Density range filter: "
             f"{density_range[0]} <= density <= {density_range[1]}"
         )
+    
+    if input_matrix_types is None:
+        print("Input matrix type filter: None")
+    else:
+        print(f"Input matrix type filter: {sorted(input_matrix_types)}")
 
     if thresholds is None:
         thresholds = [0.95, 0.8]
@@ -493,8 +582,8 @@ def make_scatter_plot(
     }
 
     system_matrix_type_colors = {
-        "adjacency": "tab:blue",
-        "neg_laplacian": "tab:red",
+        "adjacency": (0.32, 0.54, 0.72),
+        "neg_laplacian": (0.86, 0.25, 0.23),
     }
 
     threshold_colors = {
@@ -521,7 +610,7 @@ def make_scatter_plot(
     y_label_text_separate = True
 
     if n_plots == 1:
-        y_size_factor = 2.5
+        y_size_factor = 2
         y_label_text_separate = False
 
     fig, axes = plt.subplots(
@@ -554,6 +643,8 @@ def make_scatter_plot(
                 f"Selected density range: "
                 f"{density_range[0]} <= density <= {density_range[1]}"
             )
+        if input_matrix_types is not None:
+            print(f"Selected input matrix types: {sorted(input_matrix_types)}")
 
         column_max_x_values_below_threshold = {
             threshold: [] for threshold in thresholds
@@ -569,12 +660,15 @@ def make_scatter_plot(
                 filter_values=[filter_value],
                 no_averaging=no_averaging,
                 density_range=density_range,
+                input_matrix_types=input_matrix_types,
             )
 
             if filter_by == "graph_type":
                 legend_label = filter_value.replace("connected_", "")
             else:
-                legend_label = filter_value
+                legend_label = filter_value.replace(
+                    "neg_laplacian", "Neg. Laplacian"
+                ).replace("adjacency", "Adjacency")
 
             print(f"\n{filter_by}: {filter_value}")
 
@@ -693,25 +787,30 @@ def make_scatter_plot(
     fig.legend(
         legend_handles,
         legend_labels,
-        loc="upper center",
-        bbox_to_anchor=(0.5, 1.02),
+        loc="upper right",
+        bbox_to_anchor=(0.96, 1.02),
         ncol=len(legend_labels),
         fontsize="small",
         frameon=False,
     )
 
     if y_label_text_separate:
-        fig.supylabel(y_label_text, fontsize="medium")
+        fig.supylabel(y_label_text, fontsize="small")
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
 
     if save_filename:
         if density_range is not None:
             save_filename = save_filename.replace(".png", f"_orig_density_range_{density_range[0]}_to_{density_range[1]}.png")
+        if input_matrix_types is not None:
+            save_filename = save_filename.replace(".png", f"_input_matrix_type_{'_'.join(input_matrix_types)}.png")
         plt.savefig(save_filename, dpi=300, bbox_inches="tight")
         print(f"\nSaved plot to: {save_filename}")
+        crop_white_space_in_place(save_filename)
+        print(f"\nCropped plot to: {save_filename}")
 
-    plt.show()
+    if display:
+        plt.show()
 
 
 if __name__ == "__main__":
@@ -846,6 +945,25 @@ if __name__ == "__main__":
         ),
     )
 
+    parser.add_argument(
+        "--input_matrix_type",
+        nargs="+",
+        choices=sorted(ALLOWED_INPUT_MATRIX_TYPES),
+        default=None,
+        help=(
+            "Input matrix type(s) to include using column 8. "
+            "Allowed values: " + ", ".join(sorted(ALLOWED_INPUT_MATRIX_TYPES))
+        ),
+    )
+
+    parser.add_argument(
+        '--no_display',
+        action='store_false',
+        dest='display',
+        default=True,
+        help='Disable figure display (default: enabled)'
+    )
+
     args = parser.parse_args()
 
     if args.graph_type is not None and args.system_matrix_type is not None:
@@ -872,4 +990,6 @@ if __name__ == "__main__":
         no_averaging=args.no_averaging,
         time_horizons=args.time_horizons,
         density_range=args.density_range,
+        input_matrix_types=args.input_matrix_type,
+        display=args.display,
     )

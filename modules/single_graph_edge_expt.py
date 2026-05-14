@@ -79,8 +79,8 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
                         corr_y1_with_this = y3[-1]
 
         # pearson_coef = np.corrcoef(y1, y2)[0, 1]
-        corr_coef_scores_dict = get_stats_for_two_vars(y1, corr_y1_with_this, ['spearmanr', 'kendalltau'])
-        corr_coef_scores = [corr_coef_scores_dict['$\\rho_S$'], corr_coef_scores_dict['$\\tau_K$']]
+        corr_coef_scores_dict = get_stats_for_two_vars(y1, corr_y1_with_this, ['spearmanr', 'kendalltau', 'pearsonr'])
+        corr_coef_scores = [corr_coef_scores_dict['$\\rho_S$'], corr_coef_scores_dict['$\\tau_K$'], corr_coef_scores_dict['$\\rho_P$']]
 
         for axis in plot:
             if axis == 'y1':
@@ -142,7 +142,8 @@ def plot_results(results_per_edge, other_results, options, xlabel=None, ax1=None
             ax2.legend(loc="upper right")
         
         coefficients_in_title = f'Spearman rank coefficient: {corr_coef_scores[0]:.2g}\n' + \
-                                f'Kendall rank coefficient: {corr_coef_scores[1]:.2g}'
+                                f'Kendall rank coefficient: {corr_coef_scores[1]:.2g}\n' + \
+                                f'Pearson correlation coefficient: {corr_coef_scores[2]:.2g}'
         if options['label_figure_for_paper']:
             title = None
         elif options['label_figure_for_paper_with_graph_info']:

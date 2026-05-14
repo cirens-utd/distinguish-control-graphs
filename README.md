@@ -1,0 +1,1 @@
+The results are stored in .csv files at the top level and can be plotted using the `plot_results.py` script. The commands for generating the figures used in the paper are provided in the `figures/figure_generation_commands.sh` script.

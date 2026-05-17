@@ -288,9 +288,11 @@ def graph_edge_toggling_expt(options, debug_dont_plot=False, multiple_toggles=Fa
     graph_choices = options['graph_choices']
     n_plots = len(graphs)
     fig_height = 4
+    x_size_factor = 5
     if options['label_figure_for_paper']:
-        fig_height = 3.3
-    fig, axes = plt.subplots(nrows=1, ncols=n_plots, figsize=(5 * n_plots, fig_height), squeeze=False)
+        fig_height *= 0.6
+        x_size_factor *= 0.75
+    fig, axes = plt.subplots(nrows=1, ncols=n_plots, figsize=(x_size_factor * n_plots, fig_height), squeeze=False)
     low_corr_coef_score = None
     high_corr_coef_score = None
     all_corr_coef_score_results_for_all_graphs = []

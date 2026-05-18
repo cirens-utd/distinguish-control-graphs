@@ -792,6 +792,7 @@ def make_scatter_plot(
         ncol=len(legend_labels),
         fontsize="small",
         frameon=False,
+        markerscale=2,
     )
 
     if y_label_text_separate:
